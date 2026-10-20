@@ -24,9 +24,10 @@ Autor: Rodrigo Lomardo · Documento em construção — seções preenchidas con
 11. [Interpretabilidade](#11-interpretabilidade) ✅
 12. [Análise de erros](#12-análise-de-erros) ✅
 13. [Discussão crítica: serve na prática?](#13-discussão-crítica-este-modelo-serve-na-prática) ✅
-14. Trabalhos futuros — *pendente (Fase 10)*
-15. Anexo: visão computacional — *opcional (Fase 8)*
-16. Referências
+14. [Camada de serviço: API e painel](#14-camada-de-serviço-api-e-painel-clínico) ✅
+15. Trabalhos futuros — *pendente (Fase 10)*
+16. Anexo: visão computacional — *opcional (Fase 8)*
+17. Referências
 
 ---
 
@@ -902,7 +903,77 @@ E a conclusão que organiza tudo: **o diagnóstico final permanece do médico**,
 
 ---
 
-## 16. Referências
+## 14. Camada de serviço: API e painel clínico
+
+Código: [`src/medai/api/`](src/medai/api/) e [`src/medai/ui/app.py`](src/medai/ui/app.py)
+
+### 14.1 Arquitetura
+
+```
+Streamlit (:8501)  ──HTTP──>  FastAPI (:8000)  ──>  pipeline.joblib + metadata.json
+```
+
+A UI **não carrega o modelo**: conversa com a API por HTTP. Além de separar responsabilidades, isso prova o contrato REST — se o painel funciona, a API funciona.
+
+### 14.2 Endpoints
+
+| Rota | Função |
+|---|---|
+| `GET /health` | Liveness. Responde mesmo sem modelo, indicando estado `degradado` |
+| `GET /model/info` | Metadados, métricas, faixas das features e **limitações conhecidas** |
+| `POST /predict` | Probabilidade, faixa de decisão e recomendação |
+| `POST /explain` | Predição + SHAP individual e **agrupado** |
+| `POST /predict/batch` | Fila ordenada por suspeição |
+| `POST /predict/csv` | Mesma coisa, a partir de upload |
+
+Documentação automática em `/docs`, com exemplo pré-preenchido pelas medianas do treino.
+
+### 14.3 Decisões de implementação
+
+**O schema de entrada é construído em tempo de execução** a partir de `metadata.json`. Escrevê-lo à mão criaria duas fontes da verdade que divergiriam no primeiro retreino com feature set diferente.
+
+Como os nomes das colunas contêm espaço (`concave points_mean`), cada campo recebe um nome saneado e um alias com o nome original — **ambos funcionam**, e a ordem das chaves é irrelevante (o artefato reordena).
+
+**Modelo e explicador carregados uma vez, no startup.** Instanciar o explicador SHAP por requisição multiplicaria a latência sem ganho: ele depende apenas do modelo e da referência.
+
+**A referência do SHAP é o conjunto de treino, não o lote que chega.** Usar o lote faria a explicação de um paciente depender de quem mais está na fila — o mesmo exame produziria justificativas diferentes conforme o horário.
+
+**Valores fora da faixa de treino são sinalizados, não recusados.** Um tumor excepcionalmente grande é precisamente o caso que o sistema precisa processar. Mas o modelo extrapola fora da faixa em que foi ajustado, e o clínico merece saber que aquela predição é menos confiável. Valores **negativos**, por outro lado, são rejeitados com 422: medida física negativa indica corrupção de dados, não caso atípico.
+
+**Toda predição é registrada em log estruturado**, sem dados identificáveis — probabilidade, faixa, latência e versão do modelo. É o que permitiria medir concordância com o laudo final e detectar deriva em operação.
+
+**A API expõe as próprias limitações** em `/model/info`, incluindo a taxa de falsos negativos. Quem integra o sistema precisa delas tanto quanto das métricas.
+
+### 14.4 O painel
+
+Três abas:
+
+1. **Caso individual** — formulário com as 30 medidas, padrões na mediana do treino e faixa observada no tooltip. O resultado aparece como cartão colorido pela faixa, com a probabilidade em destaque e a explicação SHAP agrupada abaixo.
+2. **Triagem de fila** — upload de CSV, resumo por faixa, tabela ordenada por suspeição e download do resultado.
+3. **Sobre o modelo** — métricas, ponto de operação, versões e **limitações conhecidas em primeiro plano**.
+
+Três decisões de desenho que não são estéticas:
+
+| Decisão | Por quê |
+|---|---|
+| Exibir **probabilidade**, não só rótulo | "8,9%" convida à avaliação; "benigno" convida à concordância. Principal mitigação de automation bias que a interface pode oferecer |
+| Exibir o SHAP **agrupado** em primeiro plano | A leitura individual diria "textura foi decisiva" quando o fator é tamanho nuclear (§11.4). A individual fica num expansor, com a ressalva |
+| Expor as **limitações** numa aba própria | Uma ferramenta de apoio que esconde suas falhas é mais perigosa que uma que não existe |
+
+### 14.5 Um defeito encontrado na verificação
+
+A primeira versão da UI lia as faixas das features importando `medai.api.deps` diretamente. Funcionava nos testes e **falhava na execução real**: a UI roda em processo separado da API, e o singleton do serviço é sempre `None` ali. O sintoma foi o formulário abrir com todos os campos em zero.
+
+A correção foi expor `estatisticas_features` em `/model/info` — que é como a arquitetura deveria funcionar desde o início. O episódio é um argumento concreto a favor de verificar a aplicação de verdade, e não apenas pela suíte de testes: nenhum teste unitário pegaria um erro que só existe quando há dois processos.
+
+### 14.6 Verificação
+
+- **35 testes** cobrindo os endpoints, incluindo a igualdade entre a resposta da API e o pipeline chamado diretamente — se divergirem, o que é servido não é o que foi avaliado.
+- Verificação manual no navegador: formulário, predição, explicação e aba de transparência.
+
+---
+
+## 17. Referências
 
 - Street, W. N., Wolberg, W. H., & Mangasarian, O. L. (1993). *Nuclear feature extraction for breast tumor diagnosis.* IS&T/SPIE International Symposium on Electronic Imaging.
 - Dua, D. & Graff, C. (2019). *UCI Machine Learning Repository* — Breast Cancer Wisconsin (Diagnostic).

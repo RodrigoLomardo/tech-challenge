@@ -110,11 +110,13 @@ ignore = [
 # O sinal de menos tipográfico (U+2212) é correto em rótulos de gráfico e
 # saídas formatadas; o hífen-menos seria tipograficamente errado ali.
 # Sinais tipográficos corretos em texto em português e rótulos de gráfico.
-allowed-confusables = ["−", "×", "–", "—"]
+allowed-confusables = ["−", "×", "–", "—", "ℹ"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG"]          # fixtures do pytest aparecem como args não usados
 "notebooks/*" = ["E402"]
+# O lifespan do FastAPI recebe a aplicação por contrato, mesmo sem usá-la.
+"src/medai/api/main.py" = ["ARG001"]
 
 # -----------------------------------------------------------------------------
 # Testes

@@ -68,6 +68,13 @@ class Metadados:
     metricas_cv: dict[str, float]
     metricas_validacao: dict[str, float]
 
+    # --- Distribuição observada no treino -----------------------------------
+    # Mínimo, percentis e mediana por feature. A API usa para sinalizar
+    # entradas fora da faixa observada (sem recusá-las — um tumor atípico
+    # real não deve ser rejeitado) e a UI usa para dimensionar os controles
+    # do formulário.
+    estatisticas_features: dict[str, dict[str, float]]
+
     # --- Reprodutibilidade --------------------------------------------------
     algoritmo: str
     hiperparametros: dict[str, Any]

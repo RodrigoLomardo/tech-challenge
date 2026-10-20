@@ -384,6 +384,17 @@ def finalizar_modelo(
     if caminho_dados is not None and not caminho_dados.is_absolute():
         caminho_dados = RAIZ_PROJETO / caminho_dados
 
+    estatisticas = {
+        coluna: {
+            "minimo": float(x_final[coluna].min()),
+            "p01": float(x_final[coluna].quantile(0.01)),
+            "mediana": float(x_final[coluna].median()),
+            "p99": float(x_final[coluna].quantile(0.99)),
+            "maximo": float(x_final[coluna].max()),
+        }
+        for coluna in colunas
+    }
+
     metadados = Metadados(
         versao_modelo=f"{config.dataset.nome}_v1",
         nome_arquivo=f"medai_{config.dataset.nome}_v1.joblib",
@@ -406,6 +417,7 @@ def finalizar_modelo(
         ),
         metricas_cv={k: float(campeao[k]) for k in campeao.index if str(k).startswith("cv_")},
         metricas_validacao={k: float(v) for k, v in metricas_validacao.items()},
+        estatisticas_features=estatisticas,
         algoritmo=nome_modelo,
         hiperparametros={k: str(v) for k, v in resultado.melhores_parametros.items()},
         random_state=config.split.random_state,

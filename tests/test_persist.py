@@ -57,6 +57,16 @@ def metadados_exemplo(xy) -> Metadados:
         rotulo_positivo="maligno",
         metricas_cv={"cv_f2": 0.97},
         metricas_validacao={"recall": 1.0},
+        estatisticas_features={
+            coluna: {
+                "minimo": float(x[coluna].min()),
+                "p01": float(x[coluna].quantile(0.01)),
+                "mediana": float(x[coluna].median()),
+                "p99": float(x[coluna].quantile(0.99)),
+                "maximo": float(x[coluna].max()),
+            }
+            for coluna in x.columns
+        },
         algoritmo="logistic_regression",
         hiperparametros={"modelo__C": "0.5"},
         random_state=42,
@@ -239,3 +249,10 @@ def test_artefato_versionado_carrega_e_prediz(xy, config_breast_cancer: Config) 
     assert metadados.limiar_decisao < 0.5, "O limiar deve ser mais conservador que o padrão"
     assert metadados.n_amostras_treino == 455, "Treino final usa treino + validação"
     assert len(metadados.features_esperadas) == 30
+
+
+def test_estatisticas_cobrem_todas_as_features(metadados_exemplo: Metadados) -> None:
+    """A API valida a faixa de entrada e a UI dimensiona o formulário com isso."""
+    assert len(metadados_exemplo.estatisticas_features) == 30
+    for limites in metadados_exemplo.estatisticas_features.values():
+        assert limites["minimo"] <= limites["mediana"] <= limites["maximo"]

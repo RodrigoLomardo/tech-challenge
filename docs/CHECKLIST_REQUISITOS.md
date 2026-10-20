@@ -58,7 +58,7 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 | 6.4 | Interpretação via feature importance | 6 | `src/medai/models/explain.py` | [x] |
 | 6.5 | Interpretação via **SHAP** (global e local) | 6 | `reports/figures/16–23` | [x] |
 | 6.6 | **Discussão crítica: o modelo serve na prática? como?** | 6 | `RELATORIO_TECNICO.md` §13 | [x] |
-| 6.7 | Diagnóstico final sempre do médico (flexibilidade) | 4, 7 | zona cinzenta + aviso clínico na API/UI | [ ] |
+| 6.7 | Diagnóstico final sempre do médico (flexibilidade) | 4, 7 | zona cinzenta + aviso clínico na API/UI | [x] |
 
 ## 7. Entregáveis finais
 
@@ -75,12 +75,12 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 
 | # | Item | Fase | Status |
 |---|------|------|--------|
-| 8.1 | API FastAPI com validação pydantic e docs automáticas | 7 | [ ] |
-| 8.2 | UI Streamlit (caso individual, lote, transparência do modelo) | 7 | [ ] |
+| 8.1 | API FastAPI com validação pydantic e docs automáticas | 7 | [x] |
+| 8.2 | UI Streamlit (caso individual, lote, transparência do modelo) | 7 | [x] |
 | 8.3 | Calibração de probabilidade + Brier score | 4, 6 | [x] |
 | 8.4 | Ajuste de limiar orientado a recall + zona cinzenta | 4 | [x] |
 | 8.5 | Rastreamento de experimentos (`reports/experiments.csv`) | 4 | [x] |
-| 8.6 | Testes automatizados (dados, pipeline, modelo, API) | todas | [~] 128 testes; falta API |
+| 8.6 | Testes automatizados (dados, pipeline, modelo, API) | todas | [x] 168 testes |
 | 8.7 | Análise de robustez com múltiplas sementes | 6 | [x] |
 | 8.8 | Pipeline parametrizado por YAML (permite plugar o Pima Diabetes) | 3 | [x] |
 | 8.9 | Grad-CAM para interpretabilidade visual da CNN | 8 (opcional) | [ ] |
