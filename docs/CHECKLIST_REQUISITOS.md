@@ -80,7 +80,7 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 | 8.3 | Calibração de probabilidade + Brier score | 4, 6 | [x] |
 | 8.4 | Ajuste de limiar orientado a recall + zona cinzenta | 4 | [x] |
 | 8.5 | Rastreamento de experimentos (`reports/experiments.csv`) | 4 | [x] |
-| 8.6 | Testes automatizados (dados, pipeline, modelo, API) | todas | [ ] |
+| 8.6 | Testes automatizados (dados, pipeline, modelo, API) | todas | [~] 128 testes; falta API |
 | 8.7 | Análise de robustez com múltiplas sementes | 6 | [ ] |
 | 8.8 | Pipeline parametrizado por YAML (permite plugar o Pima Diabetes) | 3 | [x] |
 | 8.9 | Grad-CAM para interpretabilidade visual da CNN | 8 (opcional) | [ ] |

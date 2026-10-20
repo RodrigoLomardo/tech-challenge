@@ -535,6 +535,73 @@ Note que a zona cinzenta tem **precedência sobre o limiar**: um caso com probab
 
 ---
 
+### 8.9 Treino final e serialização
+
+Com o campeão escolhido, o modelo é retreinado em **treino + validação** (455 amostras) com os hiperparâmetros vencedores. O conjunto de teste permanece intocado: o modelo que será avaliado na Fase 6 nunca viu aquelas 114 amostras.
+
+**Hiperparâmetros selecionados:** `C=0,5`, `penalty='l2'`, `solver='lbfgs'`, `class_weight='balanced'`.
+
+Vale notar que `class_weight='balanced'` foi escolhido pela própria busca — a hipótese levantada na Fase 3 se confirmou empiricamente, sem ter sido imposta.
+
+#### O limiar precisou ser recalculado
+
+O limiar de 0,180 foi medido na validação, para um modelo treinado **apenas no treino**. O modelo final é treinado em treino + validação: é um modelo diferente, com probabilidades ligeiramente diferentes, e o limiar ótimo de um não é necessariamente o do outro.
+
+Medir o limiar nas predições do modelo final sobre seus próprios dados de treino também não serve — ele os ajusta bem demais, e o limiar sairia otimista.
+
+A saída é `cross_val_predict` sobre treino + validação: cada amostra recebe uma probabilidade predita por um modelo que **não a viu**. São 455 predições honestas contra as 114 do holdout de validação — estimativa mais estável, e sem tocar no teste.
+
+| Origem | Limiar |
+|---|---:|
+| Validação isolada (114 amostras, modelo treinado só no treino) | 0,180 |
+| **Fora de fold em treino + validação (455 amostras)** | **0,158** |
+
+A proximidade entre os dois é um bom sinal: indica que a escolha não depende criticamente de qual subconjunto foi usado.
+
+#### O artefato
+
+`models/medai_breast_cancer_wisconsin_v1.joblib` — 2,9 KB, contendo o **pipeline completo**: imputador, escalonador e estimador em um único objeto (ADR-005).
+
+Ao lado, `models/metadata.json` registra o que a API precisa saber antes de servir:
+
+| Campo | Para quê |
+|---|---|
+| `features_esperadas` (lista **ordenada**) | A API valida e reordena a entrada; colunas desalinhadas produziriam predições silenciosamente erradas |
+| `limiar_decisao` e `limiar_origem` | O ponto de operação e como foi obtido |
+| `zona_cinzenta` | Faixa encaminhada para revisão médica |
+| `classe_positiva` / `rotulo_positivo` | Evita a inversão de rótulo que inverteria a leitura de recall |
+| `versoes` | Python, scikit-learn, numpy, pandas, joblib do momento do treino |
+| `hash_dados` e `hash_config` | Rastreia qual dado e qual configuração geraram este modelo |
+| `metricas_cv` e `metricas_validacao` | Desempenho conhecido — **sem métricas de teste**, que ainda não foram medidas |
+
+A ausência deliberada de métricas de teste no artefato é coerente com o protocolo: registrá-las depois exigiria uma nova versão do modelo, que é o comportamento correto.
+
+#### Comportamento do artefato sobre os dados de ajuste
+
+Aplicando o modelo final sobre treino + validação — dados em que ele foi ajustado, portanto **otimista por construção e não uma avaliação**:
+
+| | Valor |
+|---|---:|
+| Malignos | 170 |
+| Recall | **0,9941** |
+| Falsos negativos | **1** |
+| Precisão | 0,8711 |
+| Falsos positivos | 25 |
+
+O recall supera o alvo de 98%, como esperado. O caso não sinalizado merece registro: ele recebeu probabilidade de **0,0226**, muito abaixo do limiar de 0,158.
+
+Isso é informativo. Não é um caso de fronteira que um limiar ligeiramente menor capturaria — é um caso sobre o qual o modelo está **confiantemente errado**. As medidas morfológicas daquela amostra se parecem com as de um tumor benigno. Nenhum ajuste de ponto de operação resolveria; seria preciso informação que o dataset não contém.
+
+É exatamente o tipo de caso que a análise de erros da Fase 6 precisa examinar, e que sustenta a exigência de revisão humana: o sistema não tem como sinalizar o que não consegue enxergar.
+
+#### Verificações automatizadas
+
+- **Round-trip:** salvar, recarregar e comparar as probabilidades sobre as 569 amostras, exigindo igualdade exata. Qualquer divergência significaria que o modelo servido não é o avaliado.
+- **Contrato de entrada:** features em ordem embaralhada são reordenadas; feature faltante gera erro explícito; colunas extras são ignoradas com registro em log.
+- **Compatibilidade de versões:** divergência entre treino e execução gera aviso, não erro — o artefato pode funcionar, mas o operador precisa saber antes de servir predições clínicas.
+
+---
+
 ## 16. Referências
 
 - Street, W. N., Wolberg, W. H., & Mangasarian, O. L. (1993). *Nuclear feature extraction for breast tumor diagnosis.* IS&T/SPIE International Symposium on Electronic Imaging.

@@ -7,10 +7,13 @@ data/external/*
 !data/**/.gitkeep
 
 # --- Modelos -------------------------------------------------------------
-# Artefatos de treino são regeneráveis via `make train`.
+# Artefatos intermediários são regeneráveis via `make train`. O artefato
+# final é versionado (2,9 KB) para que `docker compose up` funcione a partir
+# do clone, sem exigir treino prévio.
 models/*
 !models/.gitkeep
 !models/metadata.json
+!models/medai_*_v*.joblib
 
 # --- Relatórios ----------------------------------------------------------
 # Figuras e métricas SÃO versionadas: alimentam o relatório técnico.

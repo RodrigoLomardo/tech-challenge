@@ -37,19 +37,21 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, clone
 from sklearn.metrics import f1_score, fbeta_score, make_scorer, precision_score, recall_score
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_val_predict
+from sklearn.pipeline import Pipeline
 
-from medai.config import Config, carregar_config
+from medai.config import RAIZ_PROJETO, Config, carregar_config
 from medai.data.loader import carregar_dados_brutos
 from medai.data.split import DadosParticionados, construir_cv, particionar
 from medai.features import correlation as corr
 from medai.features.build_pipeline import construir_pipeline
 from medai.features.cleaning import limpar, separar_alvo
 from medai.logging_conf import configurar_logging, get_logger
-from medai.models import registry
+from medai.models import persist, registry
 from medai.models.evaluate import escolher_limiar, metricas_classificacao
+from medai.models.persist import Metadados
 
 logger = get_logger(__name__)
 
@@ -298,6 +300,122 @@ def selecionar_campeao(tabela: pd.DataFrame) -> pd.Series:
     return campeao
 
 
+# -----------------------------------------------------------------------------
+# Treino final e serialização (Fase 5)
+# -----------------------------------------------------------------------------
+
+
+def escolher_limiar_fora_de_fold(
+    estimador: BaseEstimator, x: pd.DataFrame, y: pd.Series, config: Config
+) -> tuple[float, Any]:
+    """Escolhe o limiar do modelo final por predições fora de fold.
+
+    **Por que não reaproveitar o limiar da validação.** Aquele limiar foi
+    calculado para um modelo treinado apenas no conjunto de treino. O modelo
+    final é treinado em treino + validação — é um modelo diferente, com
+    probabilidades ligeiramente diferentes, e o limiar ótimo para um não é
+    necessariamente ótimo para o outro.
+
+    Também não se pode medir o limiar nas predições do próprio modelo final
+    sobre os dados em que ele foi treinado: ele os ajusta bem demais, e o
+    limiar sairia otimista.
+
+    A saída é ``cross_val_predict``: cada amostra recebe uma probabilidade
+    predita por um modelo que **não a viu** durante o treino. São 455
+    predições honestas, contra as 114 do conjunto de validação — estimativa
+    mais estável, e sem tocar no teste.
+    """
+    probabilidades = cross_val_predict(
+        clone(estimador), x, y, cv=construir_cv(config), method="predict_proba", n_jobs=-1
+    )[:, 1]
+    limiar = escolher_limiar(y, probabilidades, config.modelagem.recall_minimo_alvo)
+    return float(limiar.limiar), limiar
+
+
+def finalizar_modelo(
+    campeao: pd.Series,
+    resultados: dict[tuple[str, str], ResultadoExperimento],
+    dados: DadosParticionados,
+    config: Config,
+) -> tuple[Pipeline, Metadados]:
+    """Retreina o campeão em treino + validação e serializa o artefato.
+
+    O conjunto de teste permanece intocado: o modelo que será avaliado na
+    Fase 6 nunca viu aquelas 114 amostras.
+    """
+    nome_modelo, nome_set = campeao["modelo"], campeao["feature_set"]
+    colunas = construir_feature_sets(dados, config)[nome_set]
+    resultado = resultados[(nome_modelo, nome_set)]
+
+    # Desempenho na validação, com o modelo treinado só no treino — é a
+    # estimativa honesta disponível nesta fase.
+    proba_validacao = resultado.estimador.predict_proba(dados.x_validacao[colunas])[:, 1]
+    limiar_validacao = escolher_limiar(
+        dados.y_validacao, proba_validacao, config.modelagem.recall_minimo_alvo
+    )
+    metricas_validacao = metricas_classificacao(
+        dados.y_validacao,
+        (proba_validacao >= limiar_validacao.limiar).astype(int),
+        proba_validacao,
+    )
+
+    # Retreino no conjunto ampliado.
+    x_final, y_final = dados.treino_mais_validacao()
+    x_final = x_final[colunas]
+    especificacao = registry.obter(nome_modelo)
+    pipeline = construir_pipeline(
+        especificacao.construtor(config.split.random_state), x_final, config
+    )
+    pipeline.set_params(**resultado.melhores_parametros)
+
+    limiar_final, detalhe = escolher_limiar_fora_de_fold(pipeline, x_final, y_final, config)
+    pipeline.fit(x_final, y_final)
+
+    logger.info(
+        "Modelo final treinado",
+        extra={
+            "n_amostras": len(x_final),
+            "limiar_validacao": round(limiar_validacao.limiar, 3),
+            "limiar_fora_de_fold": round(limiar_final, 3),
+        },
+    )
+
+    caminho_dados = config.dataset.caminho_csv
+    if caminho_dados is not None and not caminho_dados.is_absolute():
+        caminho_dados = RAIZ_PROJETO / caminho_dados
+
+    metadados = Metadados(
+        versao_modelo=f"{config.dataset.nome}_v1",
+        nome_arquivo=f"medai_{config.dataset.nome}_v1.joblib",
+        treinado_em=datetime.now(UTC).isoformat(timespec="seconds"),
+        dataset=config.dataset.nome,
+        hash_config=config.hash_config,
+        hash_dados=persist.hash_arquivo(caminho_dados) if caminho_dados else "indisponivel",
+        features_esperadas=list(colunas),
+        feature_set=nome_set,
+        limiar_decisao=limiar_final,
+        limiar_origem=(
+            "predicoes_fora_de_fold_em_treino_mais_validacao "
+            f"(alvo de recall {config.modelagem.recall_minimo_alvo:.0%}; "
+            f"limiar medido na validação isolada: {limiar_validacao.limiar:.3f})"
+        ),
+        zona_cinzenta=config.modelagem.zona_cinzenta,
+        classe_positiva=str(config.dataset.valor_positivo),
+        rotulo_positivo=(
+            "maligno" if config.dataset.nome == "breast_cancer_wisconsin" else "positivo"
+        ),
+        metricas_cv={k: float(campeao[k]) for k in campeao.index if str(k).startswith("cv_")},
+        metricas_validacao={k: float(v) for k, v in metricas_validacao.items()},
+        algoritmo=nome_modelo,
+        hiperparametros={k: str(v) for k, v in resultado.melhores_parametros.items()},
+        random_state=config.split.random_state,
+        n_amostras_treino=len(x_final),
+    )
+
+    persist.salvar(pipeline, metadados, config)
+    return pipeline, metadados
+
+
 def preparar_dados(config: Config) -> DadosParticionados:
     """Carrega, limpa e particiona — o início comum a todos os pipelines."""
     bruto = carregar_dados_brutos(config)
@@ -356,6 +474,20 @@ def main(argv: list[str] | None = None) -> int:
     print("\nPara comparação, no limiar padrão de 0,5:")
     print(f"  recall: {padrao['recall']:.3f} ({padrao['falsos_negativos']} falsos negativos)")
     print(f"  precision: {padrao['precision']:.3f}")
+
+    # --- Fase 5: treino final e serialização --------------------------------
+    print("\n" + "─" * 70)
+    print("Retreinando o campeão em treino + validação (o teste segue intocado)…")
+    _, metadados = finalizar_modelo(campeao, resultados, dados, config)
+
+    print(f"\nArtefato: models/{metadados.nome_arquivo}")
+    print(f"  algoritmo:        {metadados.algoritmo}")
+    print(f"  amostras:         {metadados.n_amostras_treino}")
+    print(f"  features:         {len(metadados.features_esperadas)} ({metadados.feature_set})")
+    print(f"  limiar:           {metadados.limiar_decisao:.3f}")
+    print(f"  zona cinzenta:    {metadados.zona_cinzenta}")
+    print(f"  hash dos dados:   {metadados.hash_dados}")
+    print(f"  scikit-learn:     {metadados.versoes['scikit-learn']}")
     return 0
 
 
