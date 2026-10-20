@@ -27,10 +27,10 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 3.1 | Carregar a base e expor suas características | 2 | `notebooks/01`, `src/medai/data/loader.py` | [~] loader pronto |
-| 3.2 | Estatísticas descritivas | 2 | `notebooks/01` (describe, skew, curtose) | [ ] |
-| 3.3 | Visualização de distribuições relevantes | 2 | `reports/figures/` (~12–15 PNGs) | [ ] |
-| 3.4 | **Discussão dos resultados da EDA** | 2 | `notebooks/01` + `RELATORIO_TECNICO.md` §4 | [ ] |
+| 3.1 | Carregar a base e expor suas características | 2 | `notebooks/01`, `src/medai/data/loader.py` | [x] |
+| 3.2 | Estatísticas descritivas | 2 | `notebooks/01`, `src/medai/data/explore.py` | [x] |
+| 3.3 | Visualização de distribuições relevantes | 2 | `reports/figures/01–10` (10 PNGs) | [x] |
+| 3.4 | **Discussão dos resultados da EDA** | 2 | `notebooks/01` + `RELATORIO_TECNICO.md` §4 | [x] |
 
 ## 4. Pré-processamento
 

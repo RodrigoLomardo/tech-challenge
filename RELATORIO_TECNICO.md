@@ -14,7 +14,7 @@ Autor: Rodrigo Lomardo · Documento em construção — seções preenchidas con
 1. [Sumário executivo](#1-sumário-executivo) — *pendente (Fase 10)*
 2. [Problema e contexto clínico](#2-problema-e-contexto-clínico) ✅
 3. [Dataset: origem, dicionário e limitações](#3-dataset-origem-dicionário-e-limitações) ✅
-4. Exploração de dados — *pendente (Fase 2)*
+4. [Exploração de dados](#4-exploração-de-dados) ✅
 5. Estratégias de pré-processamento — *pendente (Fase 3)*
 6. Correlação e multicolinearidade — *pendente (Fase 3)*
 7. Modelos utilizados e justificativa — *pendente (Fase 4)*
@@ -126,6 +126,135 @@ Registradas aqui porque condicionam o que o modelo pode legitimamente prometer, 
 | **Coletado nos anos 1990.** | Técnica de imagem e critérios citológicos mudaram em três décadas. |
 | **Sem variáveis demográficas.** | Impossível auditar viés por idade, etnia ou condição socioeconômica — e um modelo não auditável quanto a viés não deveria operar em saúde. |
 | **Conjunto de teste de ~114 amostras.** | Cada erro vale ~0,9 ponto percentual. Diferenças pequenas entre modelos são ruído; por isso a Fase 6 reporta intervalos sobre múltiplas sementes, não números pontuais. |
+
+---
+
+## 4. Exploração de dados
+
+Notebook: [`notebooks/01_exploracao_dados.ipynb`](notebooks/01_exploracao_dados.ipynb) · Figuras: `reports/figures/01–10` · Tabelas: `reports/metrics/eda_*.csv`
+
+### 4.1 Estrutura da base
+
+569 linhas × 31 colunas: 30 features `float64` e um alvo categórico. **Nenhum valor ausente, nenhuma duplicata.** 165,7 KB em memória.
+
+A ausência de ausentes simplifica a Fase 3, mas o tamanho é a restrição que condiciona toda a interpretação dos resultados: com ~114 amostras no teste, **cada erro vale 0,9 ponto percentual**. Qualquer diferença de desempenho abaixo de ~2 pontos entre dois modelos está dentro do ruído amostral, e tratá-la como real seria superinterpretação. É por isso que a Fase 6 reporta média ± desvio sobre cinco sementes em vez de um número por modelo.
+
+### 4.2 Distribuição do alvo
+
+| Classe | Contagem | Proporção |
+|---|---:|---:|
+| Benigno (`B`) | 357 | 62,7% |
+| **Maligno (`M`)** | **212** | **37,3%** |
+
+![Distribuição de classes](reports/figures/01_distribuicao_classes.png)
+
+O desbalanceamento é **moderado**. Duas conclusões:
+
+**Sobre a métrica.** O classificador que responde sempre "benigno" obtém **62,7% de accuracy** sem olhar para nenhuma feature — e **recall zero na classe maligna**, deixando passar os 212 cânceres. Accuracy alta, utilidade clínica negativa. Nenhuma métrica que premie esse comportamento pode orientar a seleção de modelo neste problema.
+
+**Sobre reamostragem.** 37,3% não justifica SMOTE nem undersampling. Gerar amostras sintéticas por interpolação de casos oncológicos reais traz risco concreto — o modelo pode aprender artefatos do interpolador em vez de padrões clínicos — sem benefício correspondente nesta faixa de desbalanceamento. O que se exige é **estratificação nos splits**, e `class_weight='balanced'` entra como variante a testar, não como correção obrigatória.
+
+### 4.3 Estatísticas descritivas
+
+As features ocupam escalas que diferem em mais de seis ordens de magnitude: `area_worst` chega a 4.254, enquanto `fractal_dimension_se` fica na casa de 0,003. Para o KNN, que calcula distância euclidiana, isso significa que sem padronização **`area_worst` sozinha determinaria toda a vizinhança**. A padronização é obrigatória, não uma boa prática opcional.
+
+Features mais assimétricas:
+
+| Feature | Skew |
+|---|---:|
+| `area_se` | 5,45 |
+| `concavity_se` | 5,11 |
+| `fractal_dimension_se` | 3,92 |
+| `perimeter_se` | 3,44 |
+| `radius_se` | 3,09 |
+
+Cabe uma distinção que costuma se perder: **`StandardScaler` não corrige assimetria.** Ele centra e redimensiona; uma distribuição com skew 5,45 continua com skew 5,45 depois dele. Transformação logarítmica corrigiria, mas beneficiaria apenas os modelos lineares — árvores e boosting são indiferentes a transformações monotônicas. Fica registrada como **hipótese a testar na Fase 4**, não como etapa a aplicar preventivamente.
+
+### 4.4 Distribuições por classe
+
+![Distribuições por feature](reports/figures/02_distribuicoes_todas_features.png)
+
+Três padrões:
+
+1. **Separação clara** em `concave points`, `perimeter`, `radius`, `area` e `concavity`.
+2. **Sobreposição quase total** em `smoothness_se`, `symmetry_se`, `texture_se` e `fractal_dimension_mean`.
+3. **Caudas longas à direita** nas features `_se`.
+
+Os boxplots e violinos (figuras 03 e 04) mostram que, mesmo nas features mais discriminantes, **as caudas das duas classes se sobrepõem**. Existem tumores benignos com medidas na faixa dos malignos. Esses casos serão os erros do modelo — e são exatamente os que mais merecem revisão humana, o que fundamenta a zona cinzenta.
+
+Nas features `_worst`, a distribuição dos malignos é mais larga e mais deslocada. Isso é clinicamente coerente: `_worst` é a média dos três núcleos mais extremos da lâmina, e é neles que o citopatologista se apoia. Uma amostra majoritariamente normal com poucos núcleos muito alterados é suspeita — e a média simples esconderia esse achado.
+
+### 4.5 Separabilidade individual (d de Cohen)
+
+![Separabilidade](reports/figures/09_separabilidade_cohen_d.png)
+
+| Maior separabilidade | d | Sem separabilidade | d |
+|---|---:|---|---:|
+| `concave points_worst` | **2,60** | `fractal_dimension_se` | 0,17 |
+| `perimeter_worst` | **2,37** | `symmetry_se` | −0,01 |
+| `concave points_mean` | **2,33** | `texture_se` | −0,02 |
+| `radius_worst` | **2,32** | `fractal_dimension_mean` | −0,03 |
+| `perimeter_mean` | **2,12** | `smoothness_se` | −0,14 |
+
+A convenção trata d = 0,8 como efeito grande; `concave points_worst` chega a 2,60. As seis primeiras posições são de `concave points`, `perimeter` ou `radius`, nas variantes `_worst` e `_mean`.
+
+**As cinco features sem separabilidade constituem uma expectativa falsificável para a Fase 6.** Se o feature importance ou o SHAP atribuírem peso alto a `smoothness_se`, há duas leituras possíveis: ou a feature tem valor em interação (que o d de Cohen, sendo univariado, não capta), ou o modelo está aprendendo ruído. Registrar a expectativa antes de ver o resultado é o que permite distinguir os dois casos — sem isso, qualquer desfecho pareceria plausível em retrospecto.
+
+### 4.6 Valores atípicos — e por que serão mantidos
+
+![Outliers por classe](reports/figures/10_outliers_por_classe.png)
+
+Pelo critério IQR, `area_se` tem 65 valores fora da cerca (11,4% das amostras), `radius_se` e `perimeter_se` 38 cada. Há bastante coisa que um pipeline automatizado "limparia".
+
+A distribuição desses atípicos entre as classes é o que decide a questão:
+
+| Classe | Amostras com ao menos uma feature fora da cerca IQR |
+|---|---:|
+| Benigno | **16,0%** |
+| Maligno | **53,8%** |
+
+Mais da metade dos casos malignos é atípica, contra um sexto dos benignos. **Os valores extremos não são ruído de medição: são a manifestação da própria patologia.** Um tumor maligno é, por definição, tecido com crescimento desregulado — núcleos maiores, contornos irregulares, maior heterogeneidade. "Fora do padrão" descreve a doença.
+
+Remover outliers por regra estatística descartaria **preferencialmente os casos que o modelo mais precisa identificar**, e o efeito seria perverso: as métricas de teste melhorariam, porque o problema ficaria artificialmente mais fácil, enquanto a utilidade clínica cairia. É uma armadilha em que um pipeline automatizado cai silenciosamente.
+
+**Decisão (ADR-007): manter todos os valores atípicos.** A única checagem de corrupção pertinente é por valores fisicamente impossíveis — medidas geométricas negativas —, e a validação não encontrou nenhum.
+
+### 4.7 Correlação entre features
+
+![Correlação](reports/figures/06_correlacao_pearson.png)
+
+Os blocos saturados não são achado empírico, são **consequência geométrica**: `perimeter ≈ 2πr` e `area ≈ πr²`, de modo que `radius`, `perimeter` e `area` medem a mesma grandeza em unidades diferentes, com |r| > 0,99. O trio se repete nos três sufixos — **nove features carregando essencialmente três informações**.
+
+O dano não é de acurácia. Árvores lidam bem com redundância: escolhem uma feature, ignoram as demais. O dano é de **interpretação** — coeficientes instáveis na regressão logística, e crédito SHAP dividido entre features correlacionadas, fazendo cada uma parecer menos importante do que o grupo é. Daí a comparação entre feature sets prevista no ADR-009. A análise formal, com Spearman e VIF, é a Fase 3.
+
+### 4.8 Separabilidade em conjunto (PCA)
+
+![PCA](reports/figures/08_pca_2d.png)
+
+Duas componentes capturam **63,2% da variância** (PC1 sozinha, 44,3%), com separação nítida ao longo de PC1.
+
+1. **O problema é aprendível.** Separação visível em 2D sem supervisão nenhuma indica que modelos lineares já devem ir bem. Isso calibra a expectativa para a Fase 6: accuracy alta aqui é característica do dataset, não mérito do algoritmo — motivo a mais para não confundir desempenho neste benchmark com prontidão clínica.
+
+2. **Há uma faixa de sobreposição** em torno de PC1 ≈ 0 a 2. **É ali que estarão os erros**, e é a base empírica da zona cinzenta: nessa região, a informação disponível não basta para decidir, e forçar um rótulo binário seria simular uma certeza que os dados não sustentam.
+
+3. **A dispersão dos malignos é muito maior.** Benignos formam aglomerado compacto; malignos se espalham. Coerente com a análise de outliers: "normal" é um estado estreito, "patológico" tem muitas formas.
+
+> **Nota metodológica.** Este PCA foi ajustado sobre o dataset inteiro, o que é aceitável porque **nenhum modelo está sendo treinado** — trata-se de visualizar estrutura. Se as componentes fossem usadas como features, o ajuste teria de se restringir ao treino, sob pena de vazamento.
+
+### 4.9 Síntese da EDA
+
+| Achado | Consequência para as próximas fases |
+|---|---|
+| 569 × 31, sem nulos nem duplicatas | Teste de ~114: reportar intervalos, não números pontuais |
+| 37,3% malignos | Estratificar; **não** reamostrar |
+| Classificador trivial acerta 62,7% | Accuracy rejeitada como métrica de decisão |
+| Escalas variando 6 ordens de magnitude | `StandardScaler` obrigatório |
+| `area_se` com skew 5,45 | Transformação log: hipótese a testar |
+| `concave points_worst` com d = 2,60 | Referência para validar o SHAP |
+| 5 features com \|d\| < 0,2 | Se o modelo valorizá-las, investigar |
+| 53,8% dos malignos atípicos vs 16,0% dos benignos | **Manter outliers** |
+| `radius`/`perimeter`/`area` com r > 0,99 | Comparar feature set completo vs reduzido |
+| PCA separa, com faixa de sobreposição | Zona cinzenta tem base empírica |
 
 ---
 

@@ -1,0 +1,51 @@
+{
+  "dataset": "breast_cancer_wisconsin",
+  "hash_config": "9a83768b6c3a",
+  "estrutura": {
+    "linhas": "569",
+    "colunas": "31",
+    "memoria_kb": "165.7",
+    "tipos": "{dtype('float64'): 30, dtype('O'): 1}",
+    "colunas_com_nulos": "0",
+    "total_nulos": "0",
+    "linhas_duplicadas": "0"
+  },
+  "classes": {
+    "B": {
+      "contagem": 357,
+      "proporcao": 0.6274,
+      "e_positiva": false
+    },
+    "M": {
+      "contagem": 212,
+      "proporcao": 0.3726,
+      "e_positiva": true
+    }
+  },
+  "top_5_separabilidade": {
+    "concave points_worst": 2.604,
+    "perimeter_worst": 2.372,
+    "concave points_mean": 2.325,
+    "radius_worst": 2.324,
+    "perimeter_mean": 2.123
+  },
+  "features_sem_separabilidade": {
+    "fractal_dimension_se": 0.169,
+    "symmetry_se": -0.013,
+    "texture_se": -0.018,
+    "fractal_dimension_mean": -0.026,
+    "smoothness_se": -0.14
+  },
+  "top_5_assimetria": {
+    "area_se": 5.45,
+    "concavity_se": 5.11,
+    "fractal_dimension_se": 3.92,
+    "perimeter_se": 3.44,
+    "radius_se": 3.09
+  },
+  "outliers_pct_por_classe": {
+    "B": 16.0,
+    "M": 53.8
+  },
+  "n_figuras": 10
+}
