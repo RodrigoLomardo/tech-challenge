@@ -150,6 +150,59 @@ Novas decisões tomadas durante a execução devem ser acrescentadas aqui, na me
 
 ---
 
+---
+
+## ADR-014 — Seleção de modelo por F2, não por recall puro
+
+**Status:** aceito (Fase 4) · substitui a abordagem inicial de "recall com desempate por F1"
+
+**Contexto.** O ADR-003 estabelece recall da classe maligna como prioridade clínica. A implementação precisa traduzir essa prioridade num critério de seleção automática de modelo.
+
+**Tentativa descartada.** A primeira implementação usava recall como métrica de `refit`, com a regra de um erro padrão: aceitar os candidatos cujo recall médio estivesse dentro de um desvio do melhor e, entre eles, escolher o de maior F1.
+
+**Ela falha exatamente no caso que deveria cobrir.** O classificador degenerado — que responde "maligno" para tudo — acerta todos os positivos em todos os folds. Seu desvio padrão é exatamente zero, a janela de equivalência colapsa para um único ponto, e ele vence sozinho. A proteção contra a solução trivial era inoperante justamente contra a solução trivial. O defeito foi encontrado por um teste escrito para verificá-la.
+
+Ajustar a tolerância para um valor fixo não resolve de forma honesta: o número escolhido passaria a carregar toda a decisão, sem fundamento que o sustente.
+
+**Decisão.** A seleção usa **F-beta com beta = 2**, que pondera recall β² = 4 vezes mais que precisão. O recall continua sendo reportado e continua sendo a prioridade clínica declarada; o F2 é sua operacionalização para escolha automática.
+
+**Razão.** O F2 embute a assimetria de custo na própria definição da métrica, em vez de tentar reconstruí-la com regras de desempate. Verificado empiricamente:
+
+| Classificador | Recall | Precisão | F1 | **F2** |
+|---|---:|---:|---:|---:|
+| Degenerado (tudo maligno) | 1,000 | 0,370 | 0,540 | **0,746** |
+| Bom modelo | 0,973 | 0,923 | 0,947 | **0,963** |
+
+O degenerado perde com folga, enquanto um modelo que troca um pouco de precisão por recall ainda é favorecido — que é precisamente o comportamento desejado.
+
+**A garantia de recall ≥ 98% não vem da seleção de modelo, vem do ajuste de limiar** (ADR-008), que é onde ela pertence: escolher a família de modelo e escolher o ponto de operação são decisões diferentes, e confundi-las foi a origem do problema.
+
+**Consequência observada.** Sob o critério F2, o campeão passou de XGBoost para **regressão logística** — que é simultaneamente o de melhor F2 e o mais simples do catálogo, confirmando a previsão da EDA de que relações predominantemente lineares bastariam.
+
+---
+
+## ADR-015 — Calibração: manter as probabilidades originais
+
+**Status:** aceito (Fase 4)
+
+**Contexto.** O ADR-008 previa aplicar `CalibratedClassifierCV` se houvesse desvio relevante de calibração. A medição foi feita na validação.
+
+**Decisão.** Manter as probabilidades do modelo original, sem recalibração.
+
+**Razão.** O erro médio de calibração do modelo é de 3,0 pontos percentuais, abaixo da tolerância de 5 pp adotada. A comparação entre os métodos mostrou tensão entre critérios:
+
+| Método | Brier | Erro médio | Erro máximo |
+|---|---:|---:|---:|
+| **Original** | **0,0306** | 0,0302 | 0,1793 |
+| Sigmoid (Platt) | 0,0352 | 0,0566 | 0,1919 |
+| Isotonic | 0,0385 | **0,0211** | **0,0610** |
+
+A regressão isotônica melhora a confiabilidade (erro médio e máximo) mas **piora o Brier**, porque perde resolução — as probabilidades ficam menos discriminantes. Como o Brier é uma regra de pontuação própria e o erro do modelo original já está dentro da tolerância, o original prevalece. A simplicidade é benefício adicional: menos uma camada entre o modelo e a predição servida.
+
+**Ressalva registrada.** A análise faixa a faixa mostra que o modelo é quase perfeito nos extremos e que **o único desvio relevante está na faixa de 76% prevista contra 58% observada** — ou seja, ele é levemente otimista justamente na região ambígua. Com 12 amostras naquela faixa, a estimativa é ruidosa (um caso vale 8 pontos percentuais), mas a direção é consistente com o que se espera de um modelo em região de fronteira.
+
+Isso **reforça a necessidade da zona cinzenta** em vez de contradizê-la: é exatamente nessa faixa que o sistema encaminha para revisão em vez de rotular. A recalibração deve ser reavaliada na Fase 6 com os dados de teste, e qualquer uso real exigiria recalibração periódica sobre dados da própria instituição.
+
 ## Decisões ainda em aberto
 
 | Item | Quando decidir | Critério |
@@ -158,3 +211,4 @@ Novas decisões tomadas durante a execução devem ser acrescentadas aqui, na me
 | Rodar o Pima Diabetes como bônus | fim da Fase 6 | Se houver fôlego; rende seção comparativa forte |
 | SVM-RBF no catálogo de modelos | Fase 4 | Incluir se o custo de tuning for baixo |
 | Executar a Fase 8 (CNN) | fim da Fase 7 | Sua avaliação sobre a completude do sistema |
+| Reavaliar calibração com dados de teste | Fase 6 | Ver ADR-015 |

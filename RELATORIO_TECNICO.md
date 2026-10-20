@@ -17,8 +17,8 @@ Autor: Rodrigo Lomardo · Documento em construção — seções preenchidas con
 4. [Exploração de dados](#4-exploração-de-dados) ✅
 5. [Estratégias de pré-processamento](#5-estratégias-de-pré-processamento) ✅
 6. [Correlação e multicolinearidade](#6-correlação-e-multicolinearidade) ✅
-7. Modelos utilizados e justificativa — *pendente (Fase 4)*
-8. Protocolo experimental — *pendente (Fase 4)*
+7. [Modelos utilizados e justificativa](#7-modelos-utilizados-e-justificativa) ✅
+8. [Protocolo experimental](#8-protocolo-experimental) ✅
 9. Resultados — *pendente (Fase 6)*
 10. Escolha da métrica e justificativa clínica — *pendente (Fase 6)*
 11. Interpretabilidade — *pendente (Fase 6)*
@@ -389,6 +389,149 @@ A redução derruba o VIF máximo em duas ordens de magnitude — **3.904 → 68
 Baixar o limiar removeria mais features, a um custo: a partir de certo ponto estaríamos descartando informação genuinamente complementar. O limiar de 0,95 foi escolhido para capturar **redundância estrutural** — identidade geométrica — e não correlação clínica legítima. São coisas diferentes, e tratá-las igual custaria sinal.
 
 **A escolha entre os conjuntos não é feita a priori.** Ambos seguem para a Fase 4 e a comparação é empírica (ADR-009): se o reduzido mantiver o desempenho, ganhamos interpretabilidade sem custo; se perder, teremos quantificado o preço da clareza. Decidir antes de medir seria substituir evidência por preferência.
+
+---
+
+## 7. Modelos utilizados e justificativa
+
+Notebook: [`notebooks/03_modelagem_experimentos.ipynb`](notebooks/03_modelagem_experimentos.ipynb) · Catálogo: [`src/medai/models/registry.py`](src/medai/models/registry.py) · Histórico: `reports/experiments.csv`
+
+O desafio pede duas ou mais técnicas. Usamos seis — cinco candidatos e um baseline — para que a comparação tenha substância.
+
+| Modelo | Por que está no catálogo |
+|---|---|
+| **Dummy** (classe majoritária) | Piso obrigatório. Obtém 62,7% de accuracy sem aprender nada e recall **zero** — o argumento mais direto contra usar accuracy como critério. |
+| **Regressão logística** | Referência clássica em risco clínico. Interpretável por coeficientes, probabilidades naturalmente calibradas, e a Fase 3 indicou relações predominantemente lineares. |
+| **Árvore de decisão** | Interpretável por regras legíveis por um clínico. Contraste de viés e variância: árvore única sobreajusta, o que evidencia o ganho dos ensembles. |
+| **KNN** | Não paramétrico, sem suposição sobre a fronteira. Depende criticamente de escalonamento — demonstra na prática a necessidade do `StandardScaler`. |
+| **Random Forest** | Robusto a features redundantes, relevante com VIF acima de 3.900. Importância nativa e menor variância que a árvore única. |
+| **XGBoost** | Costuma dar o melhor desempenho bruto em dados tabulares. Suporte nativo a TreeSHAP barateia a interpretabilidade. |
+
+---
+
+## 8. Protocolo experimental
+
+### 8.1 O critério de seleção — e um defeito corrigido
+
+A tradução de "recall é a prioridade clínica" em critério automático de seleção é o ponto mais delicado da fase.
+
+**O problema.** O classificador que responde "maligno" para tudo obtém **recall 1,0**. Nunca deixa passar um câncer porque nunca deixa passar nada. Otimizar recall diretamente seleciona exatamente ele.
+
+**A tentativa que falhou.** A primeira implementação usava a regra de um erro padrão: aceitar candidatos cujo recall médio estivesse dentro de um desvio do melhor e desempatar por F1.
+
+Ela falha **precisamente no caso que deveria cobrir**. O degenerado acerta todos os positivos em todos os folds, seu desvio padrão é zero, a janela de equivalência colapsa para um ponto e ele vence sozinho. O defeito foi encontrado por um teste escrito para verificar a proteção — o teste falhou, e o erro estava no código.
+
+Ajustar a tolerância para um valor fixo não resolveria de forma honesta: o número escolhido passaria a carregar toda a decisão.
+
+**A solução: F-beta com β = 2**, que pondera recall β² = 4 vezes mais que precisão.
+
+| Classificador | Recall | Precisão | F1 | **F2** |
+|---|---:|---:|---:|---:|
+| Degenerado (tudo maligno) | 1,000 | 0,370 | 0,540 | **0,746** |
+| Bom modelo | 0,973 | 0,923 | 0,947 | **0,963** |
+
+A assimetria de custo fica embutida na definição da métrica, em vez de ser reconstruída com regras de desempate. A garantia de recall ≥ 98% vem do **ajuste de limiar**, que é onde ela pertence — escolher a família de modelo e escolher o ponto de operação são decisões distintas, e confundi-las foi a origem do problema (ADR-014).
+
+### 8.2 Protocolo
+
+| Elemento | Escolha |
+|---|---|
+| Validação | `StratifiedKFold(5)` **dentro do treino** (341 amostras) |
+| Busca | `GridSearchCV` para espaços pequenos; `RandomizedSearchCV` (40–50 iterações) para RF e XGBoost |
+| Métrica de `refit` | **F2** |
+| Métricas acompanhadas | F2, recall, precision, F1, ROC-AUC, PR-AUC, accuracy |
+| Paralelismo | Estimadores com `n_jobs=1`, paralelismo na busca — evita superalocação de threads |
+| Registro | Append em `reports/experiments.csv`, com hash da configuração |
+| Tempo total | ~26 s para 12 experimentos |
+
+A CV reajusta o **pipeline inteiro** a cada fold, imputador e escalonador incluídos. Fosse o escalonamento aplicado antes, as estatísticas do fold de validação vazariam para o de treino dentro da própria validação cruzada.
+
+### 8.3 Resultados da validação cruzada
+
+| Modelo | Feature set | F2 | Recall | Precisão | F1 | ROC-AUC |
+|---|---|---:|---:|---:|---:|---:|
+| **Regressão logística** | **completo** | **0,9685** | 0,9686 | 0,9686 | 0,9685 | 0,9939 |
+| XGBoost | completo | 0,9667 | 0,9609 | 0,9926 | 0,9758 | 0,9895 |
+| XGBoost | reduzido | 0,9591 | 0,9609 | 0,9546 | 0,9568 | 0,9920 |
+| Árvore de decisão | completo | 0,9545 | 0,9606 | 0,9321 | 0,9457 | 0,9661 |
+| Regressão logística | reduzido | 0,9479 | 0,9452 | 0,9599 | 0,9521 | 0,9924 |
+| Random Forest | completo | 0,9414 | 0,9378 | 0,9632 | 0,9481 | 0,9883 |
+| KNN | completo | 0,9283 | 0,9222 | 0,9603 | 0,9388 | 0,9739 |
+| **Dummy** | completo | **0,0000** | **0,0000** | 0,0000 | 0,0000 | 0,5000 |
+
+**Campeão: regressão logística, feature set completo.** F2 = 0,9685 ± 0,0122.
+
+### 8.4 Três leituras
+
+**1. A EDA previu o resultado.** A Fase 2 mostrou separação no PCA em 2D; a Fase 3 mostrou divergência máxima de 0,22 entre Pearson e Spearman, indicando relações predominantemente lineares. O modelo linear tinha tudo para funcionar — e funcionou melhor que os ensembles.
+
+**2. O baseline confirma o argumento sobre a métrica.** Accuracy de 62,7% com recall e F2 exatamente zero. Um sistema completamente inútil obtém quase dois terços da accuracy.
+
+**3. A diferença no topo é empate estatístico.** Entre a logística (0,9685) e o XGBoost (0,9667) há **0,2 ponto percentual**, contra desvio de **1,2 pp** na CV. Com 341 amostras em 5 folds, cada fold valida ~68 casos dos quais ~25 são malignos: **um único caso vale 4 pp de recall**.
+
+Declarar a logística "melhor que" o XGBoost seria superinterpretação. O correto: ela é **equivalente dentro do ruído e preferível por ser mais simples e mais interpretável** — argumento legítimo, mas que não é sobre desempenho.
+
+### 8.5 Feature set completo versus reduzido
+
+| Modelo | F2 completo | F2 reduzido | Δ |
+|---|---:|---:|---:|
+| Regressão logística | 0,9685 | 0,9479 | **−2,1 pp** |
+| XGBoost | 0,9667 | 0,9591 | −0,8 pp |
+| KNN | 0,9283 | 0,9216 | −0,7 pp |
+| Árvore de decisão | 0,9545 | 0,9531 | −0,1 pp |
+| Random Forest | 0,9414 | 0,9400 | −0,1 pp |
+
+O conjunto reduzido perde em **todos** os modelos, por margens pequenas. O padrão é coerente: **os modelos de árvore são os menos afetados**, porque já lidavam com a redundância internamente, escolhendo uma feature do grupo. A logística sofre mais porque, com regularização L2, o peso de uma informação redundante se distribui entre as features correlacionadas; remover parte delas concentra esse peso de forma menos estável.
+
+**Decisão: feature set completo.** As perdas estão próximas do desvio da CV e não são claramente reais — mas como também não há ganho, a redução seria custo sem contrapartida.
+
+**Isso não anula o trabalho da Fase 3.** O VIF de 3.904 significa que os coeficientes da logística são instáveis e que o SHAP vai diluir crédito entre `radius`, `perimeter` e `area`. Saber disso de antemão é o que permitirá interpretar as explicações da Fase 6 corretamente, em vez de concluir que features decisivas em conjunto são individualmente irrelevantes.
+
+### 8.6 Calibração
+
+Medida na validação (ADR-015):
+
+| Método | Brier | Erro médio | Erro máximo |
+|---|---:|---:|---:|
+| **Original** | **0,0306** | 0,0302 | 0,1793 |
+| Sigmoid (Platt) | 0,0352 | 0,0566 | 0,1919 |
+| Isotonic | 0,0385 | **0,0211** | **0,0610** |
+
+**Decisão: manter as probabilidades originais.** O erro médio de 3,0 pp já está abaixo da tolerância de 5 pp. A regressão isotônica melhora a confiabilidade mas **piora o Brier**, porque ganha calibração às custas de resolução. Como o Brier é regra de pontuação própria e o original já é adequado, ele prevalece — com a simplicidade como benefício adicional.
+
+**Ressalva.** A análise faixa a faixa mostra concordância quase perfeita nos extremos e um único desvio relevante: **76% previsto contra 58% observado**. O modelo é levemente otimista justamente na região ambígua. Com 12 amostras naquela faixa a estimativa é ruidosa — um caso vale 8 pp —, mas a direção é consistente com o esperado em região de fronteira, e **reforça a necessidade da zona cinzenta** em vez de contradizê-la.
+
+### 8.7 Limiar de decisão
+
+Escolhido na **validação**, nunca no teste.
+
+| Limiar | Recall | Precisão | Especificidade | FN | FP |
+|---|---:|---:|---:|---:|---:|
+| Padrão (0,500) | 0,977 | 0,955 | 0,973 | **1** | 2 |
+| **Ajustado (0,180)** | **1,000** | 0,796 | 0,845 | **0** | 11 |
+
+**A troca: 1 câncer não sinalizado vira 10 revisões desnecessárias.**
+
+Essa frase resume a decisão de projeto. Ela se justifica por uma razão que não é apenas de magnitude de custo:
+
+- o **falso negativo sai do sistema** — o caso é despriorizado e ninguém olha de novo;
+- o **falso positivo continua no sistema** — um profissional revisa, discorda, e o erro se corrige no mesmo dia.
+
+Os dois erros têm **mecanismos de correção diferentes**. Um é recuperável pelo desenho do fluxo de trabalho; o outro não.
+
+A contrapartida precisa estar dita: a precisão cai de 0,955 para 0,796, isto é, **cerca de 1 em cada 5 casos sinalizados será benigno**. O sistema aumenta a carga de revisão, e só se justifica se a equipe tiver capacidade de absorvê-la. Dimensionar isso é parte da decisão de adoção, não detalhe de implementação.
+
+### 8.8 Faixas de decisão na validação
+
+| Faixa | Casos | Benignos | Malignos |
+|---|---:|---:|---:|
+| Benigno | 60 (52,6%) | 60 | **0** |
+| Zona cinzenta — revisão prioritária | 7 (6,1%) | 7 | 0 |
+| Maligno | 47 (41,2%) | 4 | 43 |
+
+**A propriedade de segurança se verifica: nenhum caso maligno cai na faixa automaticamente despriorizada.**
+
+Note que a zona cinzenta tem **precedência sobre o limiar**: um caso com probabilidade 0,50 está acima do limiar de 0,18, mas dentro da faixa 0,30–0,70, e é encaminhado para revisão em vez de rotulado. Conservador na direção certa — o sistema admite não saber em vez de simular certeza.
 
 ---
 

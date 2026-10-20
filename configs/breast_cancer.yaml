@@ -50,6 +50,7 @@ modelagem:
     - xgboost
   metrica_primaria: recall
   metricas_secundarias: [f1, roc_auc, average_precision]
+  beta_fscore: 2.0
   recall_minimo_alvo: 0.98
   zona_cinzenta: [0.30, 0.70]
   calibrar_probabilidades: true

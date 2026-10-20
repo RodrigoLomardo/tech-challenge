@@ -85,9 +85,15 @@ class ConfigModelagem(BaseModel):
     """Catálogo de modelos e critério de seleção."""
 
     modelos: list[str] = Field(default_factory=list)
-    # Recall da classe maligna é primário: falso negativo é câncer não
-    # sinalizado. Ver ADR-003.
+    # Recall da classe maligna é a prioridade *clínica*: falso negativo é
+    # câncer não sinalizado (ADR-003). Mas recall puro como critério de
+    # seleção escolhe o modelo degenerado que classifica tudo como maligno —
+    # recall 1,0, precisão 0,37, utilidade nula. A seleção usa F-beta, que
+    # pondera recall beta² vezes mais que precisão e por isso operacionaliza
+    # a prioridade clínica sem aceitar a solução trivial (ADR-014).
     metrica_primaria: Literal["recall", "f1", "roc_auc", "average_precision"] = "recall"
+    # beta=2 → recall pesa 4× precisão na seleção de modelo.
+    beta_fscore: float = Field(2.0, gt=0)
     metricas_secundarias: list[str] = Field(default=["f1", "roc_auc", "average_precision"])
     recall_minimo_alvo: float = Field(0.98, gt=0, le=1)
     # Faixa de probabilidade encaminhada para revisão médica em vez de receber

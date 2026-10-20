@@ -11,7 +11,7 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 1.1 | Classificação de exames com Machine Learning sobre base tabular | 4–5 | `src/medai/models/`, `notebooks/03` | [ ] |
+| 1.1 | Classificação de exames com Machine Learning sobre base tabular | 4–5 | `src/medai/models/`, `notebooks/03` | [x] |
 | 1.2 | Diagnóstico binário (tem / não tem a doença) | 1 | alvo `diagnosis` M=1 / B=0 | [x] |
 | 1.3 | **EXTRA** — diagnóstico com imagem via CNN | 8 (opcional) | `src/medai/vision/`, `notebooks/05` | [ ] |
 
@@ -45,14 +45,14 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 5.1 | Duas ou mais técnicas de classificação | 4 | 5 modelos + baseline em `registry.py` | [ ] |
+| 5.1 | Duas ou mais técnicas de classificação | 4 | 5 modelos + baseline em `registry.py` | [x] |
 | 5.2 | Separação clara treino / validação / teste | 3 | `src/medai/data/split.py` (60/20/20 estratificado) | [x] |
 
 ## 6. Treinamento e avaliação
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 6.1 | Treinar com o conjunto de treinamento | 4–5 | `src/medai/models/train.py` | [ ] |
+| 6.1 | Treinar com o conjunto de treinamento | 4–5 | `src/medai/models/train.py` | [x] |
 | 6.2 | Avaliar no teste com accuracy, recall e F1-score | 6 | `reports/metrics/test_metrics.json` | [ ] |
 | 6.3 | **Discussão da escolha da métrica face ao problema** | 6 | `RELATORIO_TECNICO.md` §10 | [ ] |
 | 6.4 | Interpretação via feature importance | 6 | `src/medai/models/explain.py` | [ ] |
@@ -77,9 +77,9 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 |---|------|------|--------|
 | 8.1 | API FastAPI com validação pydantic e docs automáticas | 7 | [ ] |
 | 8.2 | UI Streamlit (caso individual, lote, transparência do modelo) | 7 | [ ] |
-| 8.3 | Calibração de probabilidade + Brier score | 4, 6 | [ ] |
-| 8.4 | Ajuste de limiar orientado a recall + zona cinzenta | 4 | [ ] |
-| 8.5 | Rastreamento de experimentos (`reports/experiments.csv`) | 4 | [ ] |
+| 8.3 | Calibração de probabilidade + Brier score | 4, 6 | [x] |
+| 8.4 | Ajuste de limiar orientado a recall + zona cinzenta | 4 | [x] |
+| 8.5 | Rastreamento de experimentos (`reports/experiments.csv`) | 4 | [x] |
 | 8.6 | Testes automatizados (dados, pipeline, modelo, API) | todas | [ ] |
 | 8.7 | Análise de robustez com múltiplas sementes | 6 | [ ] |
 | 8.8 | Pipeline parametrizado por YAML (permite plugar o Pima Diabetes) | 3 | [x] |
