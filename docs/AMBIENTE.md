@@ -72,6 +72,16 @@ treino, e a API compara na inicialização.
 make setup
 ```
 
+```bash
+source activate.sh
+```
+
+O `activate.sh` ativa o venv, carrega o `.env` quando existir (sem sobrescrever
+variáveis já definidas no shell), fixa `PYTHONHASHSEED` na semente do projeto e
+limita `OMP_NUM_THREADS` para que BLAS não dispute os núcleos com o `n_jobs` do
+scikit-learn. Precisa ser carregado com `source` — executado, rodaria em
+subshell e não afetaria o seu terminal.
+
 Exige apenas Python 3.11 e, para a rota Docker, Docker com Compose v2+.
 O dataset é obtido sem credencial pela rota `sklearn` (ADR-002), então nenhum
 segredo é necessário para rodar o projeto do zero.

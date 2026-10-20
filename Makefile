@@ -25,7 +25,7 @@ $(VENV)/.installed: pyproject.toml
 	$(BIN)/pip install -e ".[all]"
 	$(BIN)/nbstripout --install --attributes .gitattributes || true
 	@touch $@
-	@echo "Ambiente pronto. Ative com: source $(BIN)/activate"
+	@echo "Ambiente pronto. Ative com: source activate.sh"
 
 freeze:  ## Congela as versões instaladas em requirements.lock.txt
 	$(BIN)/pip freeze --exclude-editable > requirements.lock.txt

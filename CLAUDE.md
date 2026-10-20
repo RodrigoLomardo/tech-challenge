@@ -59,6 +59,10 @@ Antes de propor uma mudança de abordagem, confira se já existe um ADR sobre o 
 ## Comandos
 
 ```bash
+source activate.sh  # ativa o venv e carrega as variáveis do projeto
+```
+
+```bash
 make setup    # ambiente + dependências
 make test     # pytest com cobertura
 make lint     # ruff + black --check
