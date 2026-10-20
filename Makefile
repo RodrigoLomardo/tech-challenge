@@ -9,7 +9,7 @@ API_PORT    ?= 8000
 UI_PORT     ?= 8501
 
 .DEFAULT_GOAL := help
-.PHONY: help setup data eda train api ui test lint format notebook clean docker-build docker-up docker-down freeze
+.PHONY: help setup data eda train evaluate api ui test lint format notebook clean docker-build docker-up docker-down freeze
 
 help:  ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -41,6 +41,9 @@ eda:  ## Gera as figuras de EDA em reports/figures/
 
 train:  ## Treina os modelos, seleciona o campeão e serializa o artefato
 	$(BIN)/python -m medai.models.train --config $(CONFIG)
+
+evaluate:  ## Avalia no conjunto de teste e gera figuras de interpretabilidade
+	$(BIN)/python scripts/evaluate_model.py --config $(CONFIG)
 
 # --- Serviço ----------------------------------------------------------------
 

@@ -1,0 +1,98 @@
+{
+  "modelo": "breast_cancer_wisconsin_v1",
+  "algoritmo": "logistic_regression",
+  "limiar": 0.158,
+  "n_teste": 114,
+  "metricas_limiar_operacional": {
+    "accuracy": 0.9385964912280702,
+    "precision": 0.8723404255319149,
+    "recall": 0.9761904761904762,
+    "f1": 0.9213483146067416,
+    "f1_macro": 0.9354943011882628,
+    "verdadeiros_negativos": 66,
+    "falsos_positivos": 6,
+    "falsos_negativos": 1,
+    "verdadeiros_positivos": 41,
+    "especificidade": 0.9166666666666666,
+    "roc_auc": 0.9970238095238094,
+    "average_precision": 0.9956235827664399,
+    "brier": 0.019267706889920952
+  },
+  "metricas_limiar_padrao_0_5": {
+    "accuracy": 0.9824561403508771,
+    "precision": 0.9761904761904762,
+    "recall": 0.9761904761904762,
+    "f1": 0.9761904761904762,
+    "f1_macro": 0.9811507936507937,
+    "verdadeiros_negativos": 71,
+    "falsos_positivos": 1,
+    "falsos_negativos": 1,
+    "verdadeiros_positivos": 41,
+    "especificidade": 0.9861111111111112,
+    "roc_auc": 0.9970238095238094,
+    "average_precision": 0.9956235827664399,
+    "brier": 0.019267706889920952
+  },
+  "faixas": {
+    "benigno": 67,
+    "maligno": 40,
+    "zona_cinzenta_revisao_medica": 7
+  },
+  "robustez": {
+    "media": {
+      "recall": 0.981,
+      "precision": 0.8707,
+      "f1": 0.922,
+      "roc_auc": 0.997,
+      "average_precision": 0.9955,
+      "accuracy": 0.9386
+    },
+    "desvio": {
+      "recall": 0.0199,
+      "precision": 0.0356,
+      "f1": 0.0142,
+      "roc_auc": 0.0014,
+      "average_precision": 0.0021,
+      "accuracy": 0.0124
+    },
+    "minimo": {
+      "recall": 0.9524,
+      "precision": 0.8367,
+      "f1": 0.9011,
+      "roc_auc": 0.9957,
+      "average_precision": 0.9934,
+      "accuracy": 0.9211
+    },
+    "maximo": {
+      "recall": 1.0,
+      "precision": 0.9302,
+      "f1": 0.9412,
+      "roc_auc": 0.999,
+      "average_precision": 0.9983,
+      "accuracy": 0.9561
+    },
+    "amplitude": {
+      "recall": 0.0476,
+      "precision": 0.0935,
+      "f1": 0.0401,
+      "roc_auc": 0.0033,
+      "average_precision": 0.0049,
+      "accuracy": 0.0351
+    }
+  },
+  "shap_top5": {
+    "texture_worst": 0.9911,
+    "radius_se": 0.6109,
+    "radius_worst": 0.5938,
+    "symmetry_worst": 0.5906,
+    "concave points_mean": 0.5611
+  },
+  "shap_agrupado": {
+    "tamanho (radius/perimeter/area)": 3.8516,
+    "irregularidade (concavity/compactness/concave points)": 3.1302,
+    "textura": 1.5719,
+    "simetria": 0.8519,
+    "suavidade": 0.6132,
+    "dimensão fractal": 0.4862
+  }
+}

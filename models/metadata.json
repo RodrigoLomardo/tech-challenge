@@ -1,7 +1,7 @@
 {
   "versao_modelo": "breast_cancer_wisconsin_v1",
   "nome_arquivo": "medai_breast_cancer_wisconsin_v1.joblib",
-  "treinado_em": "2026-10-20T15:20:18+00:00",
+  "treinado_em": "2026-10-20T15:34:56+00:00",
   "dataset": "breast_cancer_wisconsin",
   "hash_config": "70bb953023b2",
   "hash_dados": "f6c65a8089f4dffb",

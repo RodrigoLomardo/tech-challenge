@@ -1,0 +1,8 @@
+indice,real,probabilidade,tipo,distancia_do_limiar
+73,1,0.1166,falso negativo (câncer não sinalizado),-0.0414
+128,0,0.1886,falso positivo (revisão extra),0.0306
+448,0,0.1906,falso positivo (revisão extra),0.0326
+208,0,0.3146,falso positivo (revisão extra),0.1566
+560,0,0.3275,falso positivo (revisão extra),0.1695
+456,0,0.3429,falso positivo (revisão extra),0.1849
+455,0,0.5874,falso positivo (revisão extra),0.4294

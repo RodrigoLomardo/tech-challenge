@@ -19,11 +19,11 @@ Autor: Rodrigo Lomardo · Documento em construção — seções preenchidas con
 6. [Correlação e multicolinearidade](#6-correlação-e-multicolinearidade) ✅
 7. [Modelos utilizados e justificativa](#7-modelos-utilizados-e-justificativa) ✅
 8. [Protocolo experimental](#8-protocolo-experimental) ✅
-9. Resultados — *pendente (Fase 6)*
-10. Escolha da métrica e justificativa clínica — *pendente (Fase 6)*
-11. Interpretabilidade — *pendente (Fase 6)*
-12. Discussão crítica: o modelo serve na prática? — *pendente (Fase 6)*
-13. Limitações e riscos — *pendente (Fase 6)*
+9. [Resultados no conjunto de teste](#9-resultados-no-conjunto-de-teste) ✅
+10. [Escolha da métrica e justificativa clínica](#10-escolha-da-métrica-e-justificativa-clínica) ✅
+11. [Interpretabilidade](#11-interpretabilidade) ✅
+12. [Análise de erros](#12-análise-de-erros) ✅
+13. [Discussão crítica: serve na prática?](#13-discussão-crítica-este-modelo-serve-na-prática) ✅
 14. Trabalhos futuros — *pendente (Fase 10)*
 15. Anexo: visão computacional — *opcional (Fase 8)*
 16. Referências
@@ -599,6 +599,306 @@ Isso é informativo. Não é um caso de fronteira que um limiar ligeiramente men
 - **Round-trip:** salvar, recarregar e comparar as probabilidades sobre as 569 amostras, exigindo igualdade exata. Qualquer divergência significaria que o modelo servido não é o avaliado.
 - **Contrato de entrada:** features em ordem embaralhada são reordenadas; feature faltante gera erro explícito; colunas extras são ignoradas com registro em log.
 - **Compatibilidade de versões:** divergência entre treino e execução gera aviso, não erro — o artefato pode funcionar, mas o operador precisa saber antes de servir predições clínicas.
+
+---
+
+## 9. Resultados no conjunto de teste
+
+Notebook: [`notebooks/04_avaliacao_interpretabilidade.ipynb`](notebooks/04_avaliacao_interpretabilidade.ipynb) · Script: [`scripts/evaluate_model.py`](scripts/evaluate_model.py) · Métricas: `reports/metrics/test_metrics.json`
+
+**O conjunto de teste foi aberto uma única vez, nesta fase.** Ele permaneceu lacrado desde a Fase 3: nenhuma decisão de modelo, hiperparâmetro, feature set, calibração ou limiar foi tomada olhando para ele.
+
+### 9.1 Métricas
+
+114 amostras, 42 malignas (36,8%).
+
+| Métrica | Limiar operacional (0,158) | Limiar padrão (0,5) |
+|---|---:|---:|
+| **Recall** | **0,9762** | 0,9048 |
+| Precisão | 0,8723 | 0,9500 |
+| F1 | 0,9213 | 0,9268 |
+| Especificidade | 0,9167 | 0,9722 |
+| Accuracy | 0,9386 | 0,9474 |
+| ROC-AUC | 0,9970 | — |
+| PR-AUC | 0,9956 | — |
+| Brier | 0,0193 | — |
+| **Falsos negativos** | **1** | **4** |
+| Falsos positivos | 6 | 2 |
+
+![Matriz de confusão](reports/figures/11_matriz_confusao.png)
+
+### 9.2 O alvo de recall não foi atingido
+
+**O projeto definiu recall ≥ 98% como meta. O teste entregou 97,62%.**
+
+Isso precisa ser dito sem atenuação. O limiar de 0,158 foi calibrado por predições fora de fold sobre 455 amostras justamente para atingir 98%, e a estimativa se mostrou **otimista** em relação ao desempenho real.
+
+Duas observações, que explicam sem desculpar:
+
+1. **Com 42 malignos no teste, um único caso vale 2,4 pontos percentuais.** A diferença entre 97,62% e 98% é literalmente um caso, abaixo da resolução da medida. Não há como distinguir os dois valores com esta amostra.
+
+2. **Ainda assim, a conclusão correta não é "atingimos o alvo".** É que a estimativa fora de fold era otimista, e que em produção se deve esperar sensibilidade *em torno de* 98%, não *garantidamente acima*. A seção 9.4 quantifica essa incerteza.
+
+Note que a escolha do limiar se justificou plenamente: no corte padrão de 0,5, seriam **4 falsos negativos em vez de 1**.
+
+### 9.3 Por que a curva PR importa mais que a ROC
+
+![Curvas de desempenho](reports/figures/12_curvas_desempenho.png)
+
+ROC-AUC de 0,9970 parece quase perfeito, e é enganoso sob desbalanceamento. A ROC usa a **taxa** de falsos positivos, cujo denominador são os 72 benignos: 6 falsos positivos produzem apenas 8,3%, e a curva mal se afasta do canto superior esquerdo.
+
+A curva PR usa **precisão**, cujo denominador são os casos *sinalizados*. Os mesmos 6 falsos positivos, entre 47 sinalizados, derrubam a precisão para 0,872 — que é o que o clínico de fato experimenta: **de cada 8 casos marcados como suspeitos, aproximadamente 1 é benigno**.
+
+PR-AUC de 0,9956 continua excelente. A diferença de enquadramento é o que torna a segunda métrica honesta.
+
+O **Brier de 0,0193 é melhor que o da validação** (0,0306), confirmando a decisão de não recalibrar (ADR-015).
+
+### 9.4 Robustez: quanto do resultado é o modelo e quanto é a divisão?
+
+Todo o resultado acima vem de **uma** divisão. O protocolo inteiro — split, treino, escolha de limiar, avaliação — foi repetido com cinco sementes.
+
+![Robustez](reports/figures/24_robustez.png)
+
+| Métrica | Média | Desvio | Mínimo | Máximo | Amplitude |
+|---|---:|---:|---:|---:|---:|
+| **Recall** | **0,9810** | 0,0199 | 0,9524 | 1,0000 | **0,0476** |
+| Precisão | 0,8707 | 0,0356 | 0,8367 | 0,9302 | 0,0935 |
+| F1 | 0,9220 | 0,0142 | 0,9011 | 0,9412 | 0,0401 |
+| ROC-AUC | 0,9970 | 0,0014 | 0,9957 | 0,9990 | 0,0033 |
+| Accuracy | 0,9386 | 0,0124 | 0,9211 | 0,9561 | 0,0351 |
+
+**O recall varia de 95,2% a 100% conforme a divisão** — amplitude de 4,8 pontos, equivalente a dois casos. A média (98,1%) está acima do alvo; a semente que usamos entregou 97,6%.
+
+A resposta honesta a "qual é o recall deste modelo" é: **aproximadamente 98%, com incerteza de ±2 pontos**. Qualquer número com mais precisão é falsa exatidão.
+
+Um detalhe metodologicamente relevante: **ROC-AUC é notavelmente estável** (desvio 0,0014) enquanto recall e precisão oscilam dez vezes mais. Faz sentido — a AUC resume a ordenação sobre todos os limiares, enquanto recall e precisão dependem de um corte aplicado a poucos casos de fronteira. É mais uma razão para desconfiar de comparações entre modelos baseadas em diferenças pequenas de métricas de limiar.
+
+---
+
+## 10. Escolha da métrica e justificativa clínica
+
+O argumento foi antecipado nas Fases 1 e 2 e agora pode ser fechado com dados do teste.
+
+| | Accuracy | Recall | Cânceres não sinalizados |
+|---|---:|---:|---:|
+| Classificador trivial (sempre "benigno") | **0,632** | 0,000 | **42** |
+| MedAI Triage | 0,939 | 0,976 | **1** |
+
+A diferença de accuracy entre os dois sistemas é de 31 pontos percentuais. A diferença em cânceres não sinalizados é de **42 para 1**.
+
+Nenhuma métrica que descreva esses dois sistemas como "separados por 31 pontos" está medindo o que importa clinicamente. Accuracy responde "que fração das predições está correta"; a pergunta clínica é "quantos cânceres deixo passar, e a que custo".
+
+**A hierarquia de métricas adotada:**
+
+| Métrica | Papel | Por quê |
+|---|---|---|
+| **Recall (maligno)** | Prioridade clínica | Falso negativo é câncer não sinalizado, erro irrecuperável no fluxo |
+| **F2** | Critério de seleção | Operacionaliza a prioridade sem aceitar o classificador degenerado (ADR-014) |
+| **PR-AUC** | Qualidade sob desbalanceamento | Não se beneficia da abundância de verdadeiros negativos |
+| Precisão / especificidade | Custo operacional | Quantificam a carga de revisão gerada |
+| Brier | Honestidade da probabilidade | A UI exibe percentuais; eles precisam significar algo |
+| Accuracy | **Apenas reportada** | Nunca orientou nenhuma decisão deste projeto |
+
+---
+
+## 11. Interpretabilidade
+
+### 11.1 Coeficientes: por que não podem ser mostrados ao clínico
+
+![Coeficientes](reports/figures/14_coeficientes.png)
+
+Como as features foram padronizadas, cada coeficiente é o efeito de um desvio padrão sobre o log-odds de malignidade — magnitudes comparáveis entre unidades diferentes. Deveria ser a interpretação mais direta disponível.
+
+**Não é.** Comparando o sinal de cada coeficiente com a associação univariada da feature (d de Cohen da Fase 2):
+
+**Nove das trinta features têm sinal invertido.**
+
+| Feature | d de Cohen | Coeficiente |
+|---|---:|---:|
+| `compactness_mean` | **+1,47** | **−0,279** |
+| `compactness_worst` | +1,39 | −0,058 |
+| `symmetry_mean` | +0,74 | −0,099 |
+| `compactness_se` | +0,61 | −0,702 |
+| `concavity_se` | +0,51 | −0,059 |
+
+`compactness_mean` é claramente maior em tumores malignos (d = 1,47) e o modelo a usa para **reduzir** a suspeição.
+
+Isso não é defeito de implementação: é **supressão por multicolinearidade**, consequência direta do VIF de 3.904 medido na Fase 3. Quando features carregam informação quase idêntica, a regressão distribui pesos de modo que a *soma* funcione, e os sinais individuais perdem significado causal. Um coeficiente negativo ali significa "depois de considerar as outras, esta serve de ajuste fino" — não "compacidade protege contra câncer".
+
+**A previsão da Fase 3 se confirmou exatamente:** a multicolinearidade destruiu a interpretabilidade dos coeficientes sem prejudicar a acurácia.
+
+**Consequência de produto:** exibir esses coeficientes a um clínico produziria afirmações falsas sobre biologia. É por isso que a UI mostra SHAP.
+
+### 11.2 Permutation importance
+
+![Permutation importance](reports/figures/15_permutation_importance.png)
+
+Mede o que o modelo **usa** — quanto o recall piora ao embaralhar cada feature —, no conjunto de teste e com a métrica que interessa. Preferível à importância nativa de árvores, enviesada para alta cardinalidade e calculada no treino.
+
+Sofre da mesma armadilha sob redundância: embaralhar `radius_mean` quase não degrada a métrica porque `perimeter_mean` carrega a mesma informação. **Importância baixa significa "redundante", não "irrelevante"** — confundir os dois levaria a descartar features que, em conjunto, são decisivas.
+
+### 11.3 SHAP global — e uma expectativa aparentemente refutada
+
+![SHAP beeswarm](reports/figures/18_shap_beeswarm.png)
+
+A Fase 2 registrou uma expectativa falsificável: `concave points_worst`, com o maior d de Cohen (2,60), deveria liderar a importância.
+
+**Ela não lidera.** O topo é `texture_worst` (|SHAP| médio 0,99), e `concave points_worst` não aparece entre as seis primeiras.
+
+Antes de concluir que a EDA errou, cabe testar a explicação alternativa — a diluição por redundância. `concave points_worst` é fortemente correlacionada com `concave points_mean`, `concavity_worst` e `compactness_worst`; o crédito se reparte entre elas. `texture_worst` tem poucas companheiras correlacionadas e fica com o crédito inteiro.
+
+Se a explicação estiver certa, somar o SHAP por grandeza medida deve reordenar o ranking.
+
+### 11.4 SHAP agrupado — a expectativa se confirma
+
+![SHAP agrupado](reports/figures/17_shap_agrupado.png)
+
+| Grupo | SHAP somado |
+|---|---:|
+| **Tamanho** (radius / perimeter / area) | **3,85** |
+| **Irregularidade** (concavity / compactness / concave points) | **3,13** |
+| Textura | 1,57 |
+| Simetria | 0,85 |
+| Suavidade | 0,61 |
+| Dimensão fractal | 0,49 |
+
+`texture_worst` lidera individualmente com 0,99, mas o grupo textura soma **1,57** — menos da metade do grupo tamanho, cujos 3,85 estão distribuídos entre nove features correlacionadas.
+
+A leitura individual do SHAP estava **sistematicamente subestimando os dois sinais mais importantes**, exatamente como a Fase 3 previu. A EDA não errou: a medida individual é que é inadequada sob multicolinearidade severa.
+
+**Isso tem consequência direta de produto.** Uma interface que exibisse apenas o SHAP por feature informaria "textura foi o fator decisivo" quando o fator decisivo é tamanho nuclear. O agrupamento por grandeza não é refinamento estatístico — é o que torna a explicação **clinicamente correta**.
+
+E a leitura agrupada é coerente com a prática citopatológica: tamanho e irregularidade de contorno são os critérios centrais de malignidade.
+
+### 11.5 Explicações individuais
+
+Quatro casos escolhidos de propósito — um acerto confiante de cada tipo e os dois erros:
+
+| Caso | Figura |
+|---|---|
+| Verdadeiro positivo | `reports/figures/20_shap_verdadeiro_positivo.png` |
+| Verdadeiro negativo | `reports/figures/21_shap_verdadeiro_negativo.png` |
+| Falso positivo | `reports/figures/22_shap_falso_positivo.png` |
+| **Falso negativo** | `reports/figures/23_shap_falso_negativo.png` |
+
+Os valores SHAP estão em **log-odds**, não em pontos percentuais. Uma contribuição de +2,0 multiplica a chance de malignidade por e² ≈ 7,4. Apresentá-la como "pontos percentuais" seria incorreto, porque o efeito sobre a probabilidade depende de onde o caso está na curva logística.
+
+---
+
+## 12. Análise de erros
+
+Sete erros: **1 falso negativo e 6 falsos positivos**. A proporção reflete a escolha deliberada de limiar.
+
+| Índice | Real | Probabilidade | Distância do limiar | Tipo |
+|---:|---|---:|---:|---|
+| 73 | Maligno | 0,1166 | **−0,0414** | Falso negativo |
+| 128 | Benigno | 0,1886 | +0,0306 | Falso positivo |
+| 448 | Benigno | 0,1906 | +0,0326 | Falso positivo |
+| 208 | Benigno | 0,3146 | +0,1566 | Falso positivo |
+| 560 | Benigno | 0,3275 | +0,1695 | Falso positivo |
+| 456 | Benigno | 0,3429 | +0,1849 | Falso positivo |
+| 455 | Benigno | 0,5874 | +0,4294 | Falso positivo |
+
+**Os falsos positivos são casos de fronteira.** Cinco dos seis têm probabilidade entre 0,19 e 0,34, logo acima do limiar. São o custo direto de operar com corte conservador: casos benignos com alguma característica atípica sobem na fila, um profissional revisa e descarta. **Erro recuperável no mesmo dia.**
+
+**O falso negativo é o que importa.** Probabilidade 0,1166 — apenas 0,041 abaixo do limiar. Diferente do caso observado na Fase 5 (probabilidade 0,0226), **este é um caso de fronteira**: o modelo esteve perto de sinalizá-lo.
+
+A explicação SHAP mostra a causa: `texture_worst` = 20,9 contra média de 25,7 nos malignos, e `texture_mean` = 15,8 contra 19,3. **É um tumor maligno com textura nuclear atipicamente baixa** — e textura é a feature de maior peso individual do modelo.
+
+Isso não é falha de ajuste. É o limite do que 30 medidas morfológicas capturam: **existem tumores malignos cuja aparência citológica se aproxima do benigno**. Nenhum limiar os recupera sem inundar a fila de falsos positivos, e nenhuma quantidade de dados de treino elimina essa sobreposição — ela está na biologia, não no modelo.
+
+### 12.1 Faixas de decisão
+
+| Faixa | Benignos | Malignos | Total |
+|---|---:|---:|---:|
+| Benigno (despriorizado) | 66 | **1** | 67 |
+| Zona cinzenta (revisão prioritária) | 4 | **3** | 7 |
+| Maligno (priorizado) | 2 | 38 | 40 |
+
+A zona cinzenta faz trabalho real: **captura 3 dos 42 casos malignos** que, sem ela, receberiam rótulo automático. Chegam ao revisor marcados como incertos, em vez de carregarem uma classificação que o modelo não tem base para dar.
+
+**Mas 1 caso maligno cai na faixa despriorizada.** Em operação real, ele desceria na fila — seria revisto, como todo exame, apenas mais tarde.
+
+Esse é o limite honesto do sistema, e precisa constar de qualquer material de adoção: **o MedAI Triage reduz, mas não elimina, o risco de atraso diagnóstico**. Não é rede de segurança; é reordenador de prioridades que erra em aproximadamente 1 de cada 42 casos malignos.
+
+---
+
+## 13. Discussão crítica: este modelo serve na prática?
+
+### 13.1 A resposta curta
+
+**Como ferramenta de priorização de fila, com revisão humana universal mantida: possivelmente sim, após validação prospectiva na instituição. Como qualquer outra coisa: não.**
+
+### 13.2 O que ele realmente faz
+
+Antes de qualquer discussão sobre mérito, é preciso desfazer uma ambiguidade que o enunciado de projetos assim costuma carregar.
+
+**O modelo não analisa exames.** Ele recebe 30 medidas morfológicas que pressupõem: um profissional realizou a punção aspirativa, preparou a lâmina, e um software segmentou os núcleos celulares. O modelo entra depois disso tudo.
+
+Ele automatiza o **julgamento sobre medidas prontas**, não a **extração das medidas**. O ganho de tempo real é muito menor do que "IA analisa exames" sugere — a parte cara do processo continua humana. Um sistema que partisse da imagem bruta é um projeto diferente, e é o que a Fase 8 (CNN) exploraria.
+
+### 13.3 O que sustenta um uso cauteloso
+
+- **Desempenho consistente:** recall de 98,1% ± 2,0 sobre cinco divisões, PR-AUC acima de 0,99 em todas.
+- **Probabilidades calibradas:** Brier de 0,0193, com erro médio de calibração abaixo de 5 pp. O "87%" exibido significa aproximadamente 87%.
+- **Explicação por caso:** o clínico vê quais medidas pesaram, podendo discordar com base em algo.
+- **Admissão de incerteza:** a zona cinzenta encaminhou 7 casos sem rótulo, 3 deles malignos.
+- **Ponto de operação deliberado:** o limiar foi escolhido pelo custo clínico, não pelo default de 0,5.
+
+### 13.4 O que impede um uso irrestrito
+
+**1. Validade externa desconhecida.** 569 amostras de uma única instituição (Universidade de Wisconsin), coletadas nos anos 1990. Nada neste trabalho diz como o modelo se comporta com outro equipamento, outro protocolo de preparo ou outra população. A estabilidade entre sementes mede robustez à **divisão dos mesmos dados** — não generalização para dados novos.
+
+**2. Auditoria de viés impossível.** O dataset não contém idade, etnia nem condição socioeconômica. **Não é que a auditoria não tenha sido feita: ela não pode ser feita com estes dados.** Um modelo clínico não auditável quanto a viés não deveria operar, e essa é possivelmente a limitação mais séria de todas.
+
+**3. Um caso maligno em 42 é despriorizado.** Quantificado na seção 12.1. Precisa constar do material de adoção, não de uma nota de rodapé.
+
+**4. O alvo de recall não foi atingido.** 97,62% contra 98% pretendidos. Dentro do ruído amostral, mas a estimativa fora de fold se mostrou otimista.
+
+**5. Aumento de carga de trabalho.** Precisão de 0,872: cerca de 1 em cada 8 casos sinalizados é benigno. O sistema **gera trabalho de revisão**. Só se justifica se a equipe puder absorvê-lo — dimensionar isso é parte da decisão de adoção.
+
+**6. Nenhuma validação prospectiva nem aprovação regulatória.** Avaliação retrospectiva sobre dados históricos. Uso clínico real exigiria estudo prospectivo e submissão à ANVISA.
+
+### 13.5 Automation bias — e o que foi feito a respeito
+
+O risco mais subestimado em sistemas de apoio à decisão não é o erro do modelo: é **o profissional concordar com o modelo errado**. A literatura documenta queda de desempenho humano quando uma sugestão automatizada está presente, inclusive em casos que o profissional acertaria sozinho.
+
+Um sistema que exibe apenas um rótulo agrava o problema. As decisões de desenho que o atenuam:
+
+| Decisão | Como atenua |
+|---|---|
+| Exibir **probabilidade calibrada**, não rótulo | "87%" convida à avaliação; "maligno" convida à concordância |
+| Exibir **SHAP agrupado** junto da predição | Dá ao clínico base para discordar |
+| **Zona cinzenta** | O sistema admite não saber, em vez de simular certeza |
+| **Nunca excluir casos da revisão** | O modelo reordena a fila; não remove ninguém dela |
+| Log de auditoria de toda predição | Permite medir concordância e detectar deriva |
+
+### 13.6 Como ele poderia ser usado
+
+**Usos defensáveis**, nesta ordem de cautela:
+
+1. **Priorização de fila.** Exames com maior probabilidade sobem. Todos continuam sendo revistos; muda a ordem.
+2. **Segunda opinião assistiva.** O laudo é emitido primeiro, o modelo consultado depois. Evita ancoragem.
+3. **Sinalização de divergência.** Quando laudo humano e modelo discordam, o caso vai para revisão adicional. Aproveita o modelo sem lhe dar autoridade.
+
+**Usos inaceitáveis:** diagnóstico autônomo; exclusão de casos da revisão humana; decisão de conduta terapêutica; comunicação de resultado ao paciente.
+
+### 13.7 O que seria necessário antes de qualquer uso real
+
+1. **Validação externa** em dados da instituição que for adotá-lo, com recalibração local.
+2. **Estudo prospectivo** medindo o efeito sobre o desfecho que importa — tempo até o diagnóstico —, não apenas métricas de classificação.
+3. **Dados demográficos** e auditoria de desempenho por subgrupo. Sem isso, não há como saber a quem o sistema serve pior.
+4. **Monitoramento contínuo:** deriva de distribuição, desempenho por subgrupo, taxa de concordância com o laudo final.
+5. **Protocolo de revisão** definindo o que fazer em cada faixa, e **treinamento da equipe** sobre as limitações — incluindo a taxa de falsos negativos.
+6. **Submissão regulatória.**
+
+### 13.8 O veredito
+
+O modelo é tecnicamente sólido para o que foi construído: protocolo experimental íntegro, interpretabilidade honesta sobre as próprias limitações, ponto de operação justificado por custo clínico.
+
+**O que o impede de ser usado não é o desempenho — é a ausência de validação externa e a impossibilidade de auditar viés.** São lacunas de evidência e de dados, não de modelagem. Nenhum ajuste de algoritmo as resolve.
+
+E a conclusão que organiza tudo: **o diagnóstico final permanece do médico**, não como ressalva protocolar, mas porque o sistema demonstrou concretamente que erra — de forma confiante, inclusive — em casos cuja aparência citológica contradiz a patologia.
 
 ---
 
