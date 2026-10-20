@@ -1,0 +1,59 @@
+# Dataset bônus — Pima Indians Diabetes. Mesmo pipeline, outra base.
+# Serve para demonstrar que a parametrização por YAML generaliza, e rende
+# comparação entre um dataset "fácil" e um "difícil".
+
+dataset:
+  nome: pima_diabetes
+  descricao: >
+    Diagnóstico de diabetes em mulheres de origem Pima com 21 anos ou mais.
+    768 amostras, 8 features, 268 positivas (34,9%). Qualidade de dados
+    sensivelmente pior que o dataset principal.
+  loader: csv
+  caminho_csv: data/raw/diabetes.csv
+  kaggle_id: mathchi/diabetes-data-set
+  url_referencia: https://www.kaggle.com/datasets/mathchi/diabetes-data-set
+
+  coluna_alvo: Outcome
+  valor_positivo: 1
+  colunas_descartar: []
+
+limpeza:
+  remover_duplicatas: true
+  # Zeros fisiologicamente impossíveis: ausência disfarçada de zero.
+  # Convertidos em NaN antes da imputação.
+  zeros_impossiveis:
+    - Glucose
+    - BloodPressure
+    - SkinThickness
+    - Insulin
+    - BMI
+  estrategia_imputacao_numerica: median
+  estrategia_imputacao_categorica: most_frequent
+  remover_outliers: false
+
+split:
+  proporcao_teste: 0.20
+  proporcao_validacao: 0.20
+  estratificar: true
+  random_state: 42
+  n_folds_cv: 5
+
+correlacao:
+  metodos: [pearson, spearman]
+  limiar_redundancia: 0.95
+  calcular_vif: true
+
+modelagem:
+  modelos:
+    - dummy
+    - logistic_regression
+    - decision_tree
+    - knn
+    - random_forest
+    - xgboost
+  metrica_primaria: recall
+  metricas_secundarias: [f1, roc_auc, average_precision]
+  recall_minimo_alvo: 0.90     # teto de desempenho menor que o breast cancer
+  zona_cinzenta: [0.35, 0.65]
+  calibrar_probabilidades: true
+  sementes_robustez: [42, 7, 13, 2024, 99]

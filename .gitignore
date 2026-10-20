@@ -1,0 +1,65 @@
+# --- Dados ---------------------------------------------------------------
+# Nunca versionar dados médicos nem artefatos intermediários.
+data/raw/*
+data/interim/*
+data/processed/*
+data/external/*
+!data/**/.gitkeep
+
+# --- Modelos -------------------------------------------------------------
+# Artefatos de treino são regeneráveis via `make train`.
+models/*
+!models/.gitkeep
+!models/metadata.json
+
+# --- Relatórios ----------------------------------------------------------
+# Figuras e métricas SÃO versionadas: alimentam o relatório técnico.
+# Apenas descartamos arquivos temporários.
+reports/**/*.tmp
+
+# --- Python --------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- Testes e qualidade --------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.ruff_cache/
+.mypy_cache/
+
+# --- Notebooks -----------------------------------------------------------
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# --- Credenciais e configuração local ------------------------------------
+.env
+.env.local
+kaggle.json
+.kaggle/
+*.pem
+*.key
+
+# --- Sistema operacional e editores --------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# Configuração local do Claude Code
+.claude/settings.local.json

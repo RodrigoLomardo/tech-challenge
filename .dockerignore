@@ -1,0 +1,36 @@
+# Dados e artefatos pesados
+data/raw/*
+data/interim/*
+data/processed/*
+data/external/*
+!data/**/.gitkeep
+
+# Ambientes e caches locais
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Controle de versão e metadados
+.git/
+.gitignore
+.github/
+.claude/
+
+# Notebooks (executados fora da imagem de serviço)
+notebooks/
+.ipynb_checkpoints/
+
+# Credenciais
+.env
+kaggle.json
+.kaggle/
+
+# Documentação não necessária em runtime
+docs/
+reports/figures/

@@ -1,0 +1,56 @@
+# Dataset principal do desafio — Breast Cancer Wisconsin (Diagnostic).
+# Ver docs/DECISOES_TECNICAS.md ADR-001 e ADR-002.
+
+dataset:
+  nome: breast_cancer_wisconsin
+  descricao: >
+    Diagnóstico de câncer de mama a partir de 30 medidas morfológicas
+    extraídas de imagem digitalizada de punção aspirativa por agulha fina
+    (FNA). 569 amostras, 212 malignas (37,3%) e 357 benignas (62,7%).
+  # Preferimos o CSV do Kaggle quando presente (tem as colunas 'id' e
+  # 'Unnamed: 32' que exercitam a limpeza); o script cai para o loader do
+  # scikit-learn quando o arquivo não existe.
+  loader: csv
+  caminho_csv: data/raw/breast_cancer_wisconsin.csv
+  kaggle_id: uciml/breast-cancer-wisconsin-data
+  url_referencia: https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data
+
+  coluna_alvo: diagnosis
+  valor_positivo: M            # M = maligno = classe positiva (1)
+  colunas_descartar:
+    - id                       # identificador: jamais usar como feature
+    - "Unnamed: 32"            # coluna fantasma, 100% nula (vírgula final no CSV)
+
+limpeza:
+  remover_duplicatas: true
+  zeros_impossiveis: []        # não se aplica a este dataset
+  estrategia_imputacao_numerica: median
+  estrategia_imputacao_categorica: most_frequent
+  remover_outliers: false      # ADR-007: outlier clínico costuma ser o sinal
+
+split:
+  proporcao_teste: 0.20
+  proporcao_validacao: 0.20
+  estratificar: true
+  random_state: 42
+  n_folds_cv: 5
+
+correlacao:
+  metodos: [pearson, spearman]
+  limiar_redundancia: 0.95     # radius / perimeter / area são redundantes
+  calcular_vif: true
+
+modelagem:
+  modelos:
+    - dummy
+    - logistic_regression
+    - decision_tree
+    - knn
+    - random_forest
+    - xgboost
+  metrica_primaria: recall
+  metricas_secundarias: [f1, roc_auc, average_precision]
+  recall_minimo_alvo: 0.98
+  zona_cinzenta: [0.30, 0.70]
+  calibrar_probabilidades: true
+  sementes_robustez: [42, 7, 13, 2024, 99]

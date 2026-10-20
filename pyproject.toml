@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "medai-triage"
+version = "0.1.0"
+description = "Sistema de apoio à triagem diagnóstica — Tech Challenge (Breast Cancer Wisconsin)"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "MIT" }
+authors = [{ name = "Rodrigo Lomardo" }]
+
+# Núcleo: manipulação de dados, modelagem clássica e serialização.
+# As faixas são fechadas no major/minor porque um artefato .joblib treinado
+# em scikit-learn X não carrega de forma confiável em scikit-learn Y.
+dependencies = [
+    "numpy>=1.26,<2.2",
+    "pandas>=2.1,<2.3",
+    "scipy>=1.11,<1.15",
+    "scikit-learn>=1.4,<1.6",
+    "joblib>=1.3,<2.0",
+    "pyyaml>=6.0,<7.0",
+    "pydantic>=2.6,<3.0",
+    "pydantic-settings>=2.2,<3.0",
+]
+
+[project.optional-dependencies]
+# Visualização — usada na EDA e na geração de figuras do relatório.
+viz = [
+    "matplotlib>=3.8,<3.10",
+    "seaborn>=0.13,<0.14",
+]
+
+# Modelos adicionais além dos nativos do scikit-learn.
+models = [
+    "xgboost>=2.0,<2.2",
+    "statsmodels>=0.14,<0.15",  # VIF na análise de multicolinearidade
+]
+
+# Interpretabilidade.
+explain = [
+    "shap>=0.44,<0.47",
+]
+
+# Camada de serviço: API e painel clínico.
+serve = [
+    "fastapi>=0.110,<0.116",
+    "uvicorn[standard]>=0.27,<0.35",
+    "streamlit>=1.32,<1.42",
+    "requests>=2.31,<3.0",
+    "python-multipart>=0.0.9,<0.1",
+]
+
+# Visão computacional — Fase 8 opcional. CPU-only: esta máquina não tem CUDA.
+vision = [
+    "torch>=2.2,<2.6",
+    "torchvision>=0.17,<0.21",
+    "pillow>=10.2,<12.0",
+]
+
+# Ferramentas de desenvolvimento.
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-cov>=4.1,<7.0",
+    "ruff>=0.3,<0.9",
+    "black>=24.2,<25.0",
+    "jupyterlab>=4.1,<5.0",
+    "nbstripout>=0.7,<0.9",
+    "httpx>=0.27,<0.29",  # TestClient do FastAPI
+]
+
+# Conjunto completo, exceto visão computacional (torch é pesado).
+all = [
+    "medai-triage[viz,models,explain,serve,dev]",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# -----------------------------------------------------------------------------
+# Qualidade de código
+# -----------------------------------------------------------------------------
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # comprehensions
+    "SIM",  # simplificações
+    "ARG",  # argumentos não utilizados
+    "PTH",  # prefira pathlib
+    "RUF",
+]
+ignore = [
+    "E501",  # comprimento de linha é responsabilidade do black
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG"]          # fixtures do pytest aparecem como args não usados
+"notebooks/*" = ["E402"]
+
+# -----------------------------------------------------------------------------
+# Testes
+# -----------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --strict-markers --cov=medai --cov-report=term-missing"
+markers = [
+    "slow: testes que treinam modelos (desative com -m 'not slow')",
+    "integration: testes que exigem artefato de modelo ou dados em disco",
+]
+
+[tool.coverage.run]
+source = ["src/medai"]
+omit = ["*/vision/*"]  # Fase 8 opcional
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]
