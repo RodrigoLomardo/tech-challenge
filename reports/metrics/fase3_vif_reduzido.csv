@@ -1,0 +1,25 @@
+feature,vif,severidade
+concavity_mean,68.0403400907361,severo
+concave points_mean,67.8279764816019,severo
+compactness_worst,46.05681860713383,severo
+concave points_worst,40.76594731551668,severo
+concavity_worst,39.50349265117822,severo
+compactness_mean,32.2103365008782,severo
+compactness_se,25.26008073103071,severo
+fractal_dimension_worst,20.733946508169655,severo
+perimeter_worst,19.163614271994152,severo
+concavity_se,19.050532694638424,severo
+texture_worst,16.23850303621889,severo
+radius_se,15.921707693766002,severo
+area_se,14.577457377509157,severo
+fractal_dimension_mean,12.691343569625671,severo
+smoothness_worst,11.537941445962415,severo
+texture_mean,10.77872592553504,severo
+symmetry_worst,9.789536478749293,preocupante
+fractal_dimension_se,9.51159174276427,preocupante
+concave points_se,8.941238004573842,preocupante
+smoothness_mean,8.330728384830477,preocupante
+symmetry_se,6.027307128939931,preocupante
+symmetry_mean,4.337266996701386,aceitável
+texture_se,3.971066861353724,aceitável
+smoothness_se,3.741460514764923,aceitável

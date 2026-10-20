@@ -36,17 +36,17 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 4.1 | Limpeza: valores ausentes e inconsistentes | 3 | `src/medai/features/cleaning.py` | [ ] |
-| 4.2 | Pipeline de pré-processamento em Python | 3 | `src/medai/features/build_pipeline.py` | [ ] |
-| 4.3 | Conversão de variáveis categóricas e numéricas | 3 | `ColumnTransformer` (ramos num + cat) | [ ] |
-| 4.4 | **Análise de correlação** | 3 | `src/medai/features/correlation.py`, `notebooks/02` | [ ] |
+| 4.1 | Limpeza: valores ausentes e inconsistentes | 3 | `src/medai/features/cleaning.py` | [x] |
+| 4.2 | Pipeline de pré-processamento em Python | 3 | `src/medai/features/build_pipeline.py` | [x] |
+| 4.3 | Conversão de variáveis categóricas e numéricas | 3 | `ColumnTransformer` (ramos num + cat) | [x] |
+| 4.4 | **Análise de correlação** | 3 | `src/medai/features/correlation.py`, `notebooks/02` | [x] |
 
 ## 5. Modelagem
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
 | 5.1 | Duas ou mais técnicas de classificação | 4 | 5 modelos + baseline em `registry.py` | [ ] |
-| 5.2 | Separação clara treino / validação / teste | 3 | `src/medai/data/split.py` (60/20/20 estratificado) | [ ] |
+| 5.2 | Separação clara treino / validação / teste | 3 | `src/medai/data/split.py` (60/20/20 estratificado) | [x] |
 
 ## 6. Treinamento e avaliação
 
@@ -82,7 +82,7 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 | 8.5 | Rastreamento de experimentos (`reports/experiments.csv`) | 4 | [ ] |
 | 8.6 | Testes automatizados (dados, pipeline, modelo, API) | todas | [ ] |
 | 8.7 | Análise de robustez com múltiplas sementes | 6 | [ ] |
-| 8.8 | Pipeline parametrizado por YAML (permite plugar o Pima Diabetes) | 3 | [ ] |
+| 8.8 | Pipeline parametrizado por YAML (permite plugar o Pima Diabetes) | 3 | [x] |
 | 8.9 | Grad-CAM para interpretabilidade visual da CNN | 8 (opcional) | [ ] |
 
 ---

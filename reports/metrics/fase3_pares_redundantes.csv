@@ -1,0 +1,15 @@
+feature_a,feature_b,correlacao
+radius_mean,perimeter_mean,0.9978
+radius_worst,perimeter_worst,0.9938
+radius_mean,area_mean,0.9871
+perimeter_mean,area_mean,0.9865
+radius_worst,area_worst,0.9823
+perimeter_worst,area_worst,0.9766
+perimeter_mean,perimeter_worst,0.9756
+radius_mean,radius_worst,0.9745
+perimeter_mean,radius_worst,0.9743
+radius_mean,perimeter_worst,0.9704
+area_mean,radius_worst,0.97
+radius_se,perimeter_se,0.9696
+area_mean,area_worst,0.9687
+area_mean,perimeter_worst,0.9668

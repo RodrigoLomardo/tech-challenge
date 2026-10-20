@@ -15,8 +15,8 @@ Autor: Rodrigo Lomardo · Documento em construção — seções preenchidas con
 2. [Problema e contexto clínico](#2-problema-e-contexto-clínico) ✅
 3. [Dataset: origem, dicionário e limitações](#3-dataset-origem-dicionário-e-limitações) ✅
 4. [Exploração de dados](#4-exploração-de-dados) ✅
-5. Estratégias de pré-processamento — *pendente (Fase 3)*
-6. Correlação e multicolinearidade — *pendente (Fase 3)*
+5. [Estratégias de pré-processamento](#5-estratégias-de-pré-processamento) ✅
+6. [Correlação e multicolinearidade](#6-correlação-e-multicolinearidade) ✅
 7. Modelos utilizados e justificativa — *pendente (Fase 4)*
 8. Protocolo experimental — *pendente (Fase 4)*
 9. Resultados — *pendente (Fase 6)*
@@ -255,6 +255,140 @@ Duas componentes capturam **63,2% da variância** (PC1 sozinha, 44,3%), com sepa
 | 53,8% dos malignos atípicos vs 16,0% dos benignos | **Manter outliers** |
 | `radius`/`perimeter`/`area` com r > 0,99 | Comparar feature set completo vs reduzido |
 | PCA separa, com faixa de sobreposição | Zona cinzenta tem base empírica |
+
+---
+
+## 5. Estratégias de pré-processamento
+
+Notebook: [`notebooks/02_preprocessamento_correlacao.ipynb`](notebooks/02_preprocessamento_correlacao.ipynb) · Código: [`src/medai/features/`](src/medai/features/)
+
+### 5.1 O princípio que organiza a fase
+
+Há uma fronteira que decide se o experimento é válido: **o que aprende dos dados precisa aprender só do treino**.
+
+A implementação respeita essa fronteira dividindo as responsabilidades em dois lugares:
+
+| Onde | O que faz | Aprende dos dados? |
+|---|---|---|
+| [`cleaning.py`](src/medai/features/cleaning.py), antes do split | Descarta colunas, mapeia o rótulo, remove duplicatas, converte zeros impossíveis em NaN | **Não** |
+| [`build_pipeline.py`](src/medai/features/build_pipeline.py), ajustado só no treino | Imputa, escalona, codifica | **Sim** |
+
+Imputar a mediana antes do split, por exemplo, parece inofensivo — mas a mediana do dataset inteiro carrega informação das amostras de teste, e a estimativa final passa a ser otimista sem que nada sinalize o problema. Com 569 amostras o efeito é pequeno, o que o torna ainda mais perigoso: não aparece como anomalia, aparece como um resultado ligeiramente melhor.
+
+### 5.2 Limpeza
+
+**Colunas descartadas.** `id` e `Unnamed: 32`. O identificador precisa sair porque não tem significado clínico e, se a ordem de coleta correlacionar com o desfecho, o modelo aprenderia o número de registro em vez da patologia — vazamento invisível nas métricas e inútil em produção. A coluna fantasma é artefato de vírgula final no CSV do Kaggle, 100% nula.
+
+**Zeros fisiologicamente impossíveis.** Não se aplicam a este dataset, mas a regra está implementada e configurável por YAML, porque o Pima Diabetes grava ausentes como zero em `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin` e `BMI`. Tratá-los como medições reais distorce a mediana e ensina ao modelo uma fisiologia inexistente.
+
+**Duplicatas.** Nenhuma encontrada. Seriam removidas por inflarem artificialmente o peso de uma amostra.
+
+**Outliers: mantidos.** A opção existe na configuração, mas ligá-la lança `NotImplementedError` com a justificativa do ADR-007. A evidência está na seção 4.6: 53,8% dos casos malignos são atípicos pelo critério IQR, contra 16,0% dos benignos.
+
+### 5.3 Particionamento
+
+Divisão **60/20/20 estratificada**, `random_state=42`, implementada em [`split.py`](src/medai/data/split.py).
+
+| Conjunto | n | Positivos | Desvio da base |
+|---|---:|---:|---:|
+| Treino | 341 | 37,2% | −0,1 pp |
+| Validação | 114 | 37,7% | +0,4 pp |
+| Teste | 114 | 36,8% | −0,5 pp |
+
+Os três conjuntos são disjuntos e cobrem o dataset inteiro — verificado por teste automatizado.
+
+**Por que três conjuntos e não dois.** Cada um tem um papel que não se mistura: o treino ajusta, a validação escolhe o limiar de decisão e confere a seleção da CV, o teste estima o desempenho uma única vez. Se o limiar fosse escolhido no teste, a estimativa final ficaria otimista e **não haveria dado reservado para corrigi-la** — o erro seria permanente.
+
+**Por que estratificar.** Com 114 amostras no teste, um sorteio infeliz poderia produzir proporção de classes bem diferente da base, e as métricas refletiriam a sorte da divisão em vez do modelo. A estratificação manteve o desvio abaixo de 0,5 ponto percentual.
+
+**Por que validação cruzada dentro do treino.** Na CV de 5 folds, cada uma das 341 amostras serve de validação em exatamente um fold. Num holdout único, 20% validam sempre e 80% nunca. Com base pequena, a diferença em aproveitamento de sinal é relevante.
+
+### 5.4 Pipeline
+
+`ColumnTransformer` com um ramo por tipo:
+
+- **numérico:** `SimpleImputer(strategy='median')` → `StandardScaler()`
+- **categórico:** `SimpleImputer(strategy='most_frequent')` → `OneHotEncoder(handle_unknown='ignore')`
+
+**Escalonamento.** Obrigatório, não opcional. As features diferem em mais de seis ordens de magnitude (`area_worst` chega a 4.254; `fractal_dimension_se` fica em 0,003). O KNN calcula distância euclidiana — sem padronização, `area_worst` sozinha determinaria toda a vizinhança e as outras 29 features seriam decorativas.
+
+**Imputação mediana, apesar de não haver ausentes.** Três razões, nenhuma delas "porque o requisito pede":
+
+1. A API receberá payloads incompletos — um formulário com medidas faltando precisa produzir resposta, não erro 500.
+2. O mesmo pipeline roda sobre o Pima, onde ausentes existem.
+3. Mediana e não média porque as features `_se` têm skew acima de 5; a média seria puxada pelas caudas.
+
+A mediana usada é **a do treino**, fixada no `fit`. Usar a mediana do lote que chega em produção seria vazamento de outro tipo — as predições de um paciente mudariam conforme quem mais estivesse na fila.
+
+**Encoder com `handle_unknown='ignore'`.** Uma categoria nunca vista vira vetor de zeros em vez de derrubar o serviço.
+
+**Pipeline único e serializável.** O artefato que vai para a API contém pré-processamento *e* estimador (ADR-005). Salvar só o modelo obrigaria a reimplementar o pré-processamento no servidor, e qualquer divergência sutil — ordem de colunas, parâmetros do scaler — produziria predições erradas sem erro aparente.
+
+### 5.5 Verificação de ausência de vazamento
+
+Após ajustar o pré-processador apenas no treino:
+
+| Conjunto | Média | Desvio |
+|---|---:|---:|
+| Treino | 4,5 × 10⁻¹⁷ | 1,0000 |
+| Teste | −0,0136 | 0,9426 |
+
+O treino sai centrado em zero com desvio unitário, por definição do `StandardScaler`. **O teste não sai centrado — e esse é o resultado correto:** foi transformado com média e desvio do treino, sendo outra amostra, desvia um pouco.
+
+Se o teste também saísse em zero, o escalonador teria visto dados de teste no ajuste. Nenhuma exceção seria lançada e as métricas ficariam otimistas sem sinal algum. O teste `test_pipeline_nao_vaza_estatisticas_do_teste` falha se alguém introduzir esse erro.
+
+---
+
+## 6. Correlação e multicolinearidade
+
+### 6.1 Pares redundantes
+
+Catorze pares com |r| ≥ 0,95 no conjunto de treino. O topo:
+
+| Par | \|r\| |
+|---|---:|
+| `radius_mean` × `perimeter_mean` | **0,998** |
+| `radius_worst` × `perimeter_worst` | **0,994** |
+| `radius_mean` × `area_mean` | 0,987 |
+| `perimeter_mean` × `area_mean` | 0,987 |
+| `radius_worst` × `area_worst` | 0,982 |
+
+Não é achado empírico: é **identidade geométrica**. `perimeter ≈ 2πr` e `area ≈ πr²`. O trio se repete nos três sufixos, gerando nove features que carregam essencialmente três informações.
+
+### 6.2 Pearson versus Spearman
+
+A divergência máxima entre os dois métodos é de **0,22**, em pares envolvendo `concavity_se`. Divergência baixa significa que as relações são predominantemente **lineares**, não apenas monotônicas.
+
+Isso é informação acionável: a regressão logística tem chance real de capturar a estrutura, e transformações não lineares teriam pouco a acrescentar — o que reduz a atratividade da transformação logarítmica levantada na Fase 2.
+
+### 6.3 Correlação com o alvo
+
+Correlação ponto-bisserial, calculada no treino. `concave points_worst` lidera com r ≈ 0,79 — **confirmando por um caminho independente o que o d de Cohen apontou na Fase 2**. Duas medidas distintas convergindo sobre a mesma feature indica achado robusto, não artefato de um estimador.
+
+### 6.4 VIF
+
+| | Feature set completo (30) | Reduzido (24) |
+|---|---:|---:|
+| VIF máximo | **3.904** (`perimeter_mean`) | **68** (`concavity_mean`) |
+| Severo (>10) | 25 | 16 |
+| Preocupante (5–10) | 2 | 5 |
+| Aceitável (<5) | 3 | 3 |
+
+O VIF capta colinearidade **múltipla**, que a correlação par a par não enxerga: uma feature pode ter correlação apenas moderada com cada uma das outras e ainda assim ser quase uma combinação linear do conjunto.
+
+**O que a multicolinearidade faz e o que não faz.** Ela não prejudica a acurácia — árvores escolhem uma feature do grupo redundante e ignoram as demais; a regressão logística regularizada também lida razoavelmente. O que ela destrói é a **interpretação**: coeficientes instáveis que podem inverter de sinal com pequenas mudanças no treino, e crédito SHAP dividido entre features correlacionadas, fazendo cada uma parecer menos importante do que o grupo é. Como interpretabilidade é entregável deste projeto, isso importa.
+
+### 6.5 Conjunto reduzido — e uma ressalva
+
+A seleção gulosa remove, em cada par acima do limiar, a feature menos associada ao alvo. Seis removidas: `radius_mean`, `radius_worst`, `area_mean`, `area_worst`, `perimeter_mean`, `perimeter_se`.
+
+A redução derruba o VIF máximo em duas ordens de magnitude — **3.904 → 68**.
+
+**Mas o problema não desaparece.** Dezesseis features seguem na faixa severa, lideradas por `concavity_mean` (68) e `concave points_mean` (67,8). A razão é que `concavity`, `compactness` e `concave points` medem aspectos relacionados do mesmo fenômeno — irregularidade do contorno nuclear — e se correlacionam na faixa de 0,8 a 0,9, **abaixo do limiar de 0,95**.
+
+Baixar o limiar removeria mais features, a um custo: a partir de certo ponto estaríamos descartando informação genuinamente complementar. O limiar de 0,95 foi escolhido para capturar **redundância estrutural** — identidade geométrica — e não correlação clínica legítima. São coisas diferentes, e tratá-las igual custaria sinal.
+
+**A escolha entre os conjuntos não é feita a priori.** Ambos seguem para a Fase 4 e a comparação é empírica (ADR-009): se o reduzido mantiver o desempenho, ganhamos interpretabilidade sem custo; se perder, teremos quantificado o preço da clareza. Decidir antes de medir seria substituir evidência por preferência.
 
 ---
 

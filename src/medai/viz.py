@@ -355,8 +355,7 @@ def plot_separabilidade(cohen_d: pd.Series, *, top: int = 30) -> plt.Figure:
     ax.barh(dados.index, dados.to_numpy(), color=cores, edgecolor="white")
     ax.axvline(0.8, linestyle="--", color="#555555", linewidth=1, label="efeito grande (d = 0,8)")
     ax.axvline(0, color="#333333", linewidth=0.8)
-    # O sinal é um menos tipográfico (U+2212), correto em rótulo de eixo.
-    ax.set_xlabel("d de Cohen (maligno − benigno)")  # noqa: RUF001
+    ax.set_xlabel("d de Cohen (maligno − benigno)")
     ax.set_title("Poder discriminativo individual de cada feature")
     ax.legend(fontsize=9)
     ax.tick_params(labelsize=8)

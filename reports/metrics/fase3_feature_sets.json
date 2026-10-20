@@ -1,0 +1,96 @@
+{
+  "completo": [
+    "radius_mean",
+    "texture_mean",
+    "perimeter_mean",
+    "area_mean",
+    "smoothness_mean",
+    "compactness_mean",
+    "concavity_mean",
+    "concave points_mean",
+    "symmetry_mean",
+    "fractal_dimension_mean",
+    "radius_se",
+    "texture_se",
+    "perimeter_se",
+    "area_se",
+    "smoothness_se",
+    "compactness_se",
+    "concavity_se",
+    "concave points_se",
+    "symmetry_se",
+    "fractal_dimension_se",
+    "radius_worst",
+    "texture_worst",
+    "perimeter_worst",
+    "area_worst",
+    "smoothness_worst",
+    "compactness_worst",
+    "concavity_worst",
+    "concave points_worst",
+    "symmetry_worst",
+    "fractal_dimension_worst"
+  ],
+  "reduzido": [
+    "texture_mean",
+    "smoothness_mean",
+    "compactness_mean",
+    "concavity_mean",
+    "concave points_mean",
+    "symmetry_mean",
+    "fractal_dimension_mean",
+    "radius_se",
+    "texture_se",
+    "area_se",
+    "smoothness_se",
+    "compactness_se",
+    "concavity_se",
+    "concave points_se",
+    "symmetry_se",
+    "fractal_dimension_se",
+    "texture_worst",
+    "perimeter_worst",
+    "smoothness_worst",
+    "compactness_worst",
+    "concavity_worst",
+    "concave points_worst",
+    "symmetry_worst",
+    "fractal_dimension_worst"
+  ],
+  "removidas": [
+    "area_mean",
+    "area_worst",
+    "perimeter_mean",
+    "perimeter_se",
+    "radius_mean",
+    "radius_worst"
+  ],
+  "motivo_remocao": {
+    "radius_mean": {
+      "redundante_com": "perimeter_mean",
+      "r": 0.9978
+    },
+    "radius_worst": {
+      "redundante_com": "perimeter_worst",
+      "r": 0.9938
+    },
+    "area_mean": {
+      "redundante_com": "perimeter_mean",
+      "r": 0.9865
+    },
+    "area_worst": {
+      "redundante_com": "perimeter_worst",
+      "r": 0.9766
+    },
+    "perimeter_mean": {
+      "redundante_com": "perimeter_worst",
+      "r": 0.9756
+    },
+    "perimeter_se": {
+      "redundante_com": "radius_se",
+      "r": 0.9696
+    }
+  },
+  "vif_max_completo": 3904.330939596785,
+  "vif_max_reduzido": 68.0403400907361
+}
