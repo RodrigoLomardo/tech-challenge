@@ -52,6 +52,7 @@ Antes de propor uma mudança de abordagem, confira se já existe um ADR sobre o 
 
 - **Execute as fases na ordem** do PLANEJAMENTO.md. Cada fase tem entregável próprio; não começar a seguinte com a anterior pela metade.
 - **Um commit por unidade coerente de trabalho**, mensagem em português descrevendo o efeito. Commit só quando eu pedir.
+- **Commits saem no meu nome, sem co-autoria.** Nada de `Co-Authored-By`, `Generated with` ou qualquer menção a assistente nas mensagens de commit ou em PRs. Este é um desafio pessoal — a autoria é minha.
 - **Teste junto, não depois.** Toda função em `src/medai/` nasce com teste em `tests/`.
 - **Nunca versionar:** `data/raw/`, `data/interim/`, `data/processed/`, `.venv/`, `kaggle.json`, `.env`, artefatos intermediários de modelo.
 - Arquivos temporários vão para o scratchpad da sessão, não para o repositório.

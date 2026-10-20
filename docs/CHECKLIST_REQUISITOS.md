@@ -12,22 +12,22 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
 | 1.1 | Classificação de exames com Machine Learning sobre base tabular | 4–5 | `src/medai/models/`, `notebooks/03` | [ ] |
-| 1.2 | Diagnóstico binário (tem / não tem a doença) | 1 | alvo `diagnosis` M=1 / B=0 | [ ] |
+| 1.2 | Diagnóstico binário (tem / não tem a doença) | 1 | alvo `diagnosis` M=1 / B=0 | [x] |
 | 1.3 | **EXTRA** — diagnóstico com imagem via CNN | 8 (opcional) | `src/medai/vision/`, `notebooks/05` | [ ] |
 
 ## 2. Dados e modelos
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 2.1 | Escolha de dataset médico público | 1 | Breast Cancer Wisconsin (Diagnostic) | [ ] |
-| 2.2 | Definição explícita do problema a resolver | 1 | `RELATORIO_TECNICO.md` §2 | [ ] |
+| 2.1 | Escolha de dataset médico público | 1 | Breast Cancer Wisconsin (Diagnostic) | [x] |
+| 2.2 | Definição explícita do problema a resolver | 1 | `RELATORIO_TECNICO.md` §2 | [x] |
 | 2.3 | Link de download documentado | 10 | `README.md` seção Dataset | [ ] |
 
 ## 3. Exploração de dados
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 3.1 | Carregar a base e expor suas características | 2 | `notebooks/01`, `src/medai/data/loader.py` | [ ] |
+| 3.1 | Carregar a base e expor suas características | 2 | `notebooks/01`, `src/medai/data/loader.py` | [~] loader pronto |
 | 3.2 | Estatísticas descritivas | 2 | `notebooks/01` (describe, skew, curtose) | [ ] |
 | 3.3 | Visualização de distribuições relevantes | 2 | `reports/figures/` (~12–15 PNGs) | [ ] |
 | 3.4 | **Discussão dos resultados da EDA** | 2 | `notebooks/01` + `RELATORIO_TECNICO.md` §4 | [ ] |
