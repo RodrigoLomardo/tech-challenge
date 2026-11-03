@@ -615,16 +615,16 @@ Notebook: [`notebooks/04_avaliacao_interpretabilidade.ipynb`](notebooks/04_avali
 
 | Métrica | Limiar operacional (0,158) | Limiar padrão (0,5) |
 |---|---:|---:|
-| **Recall** | **0,9762** | 0,9048 |
-| Precisão | 0,8723 | 0,9500 |
-| F1 | 0,9213 | 0,9268 |
-| Especificidade | 0,9167 | 0,9722 |
-| Accuracy | 0,9386 | 0,9474 |
+| **Recall** | **0,9762** | 0,9762 |
+| Precisão | 0,8723 | 0,9762 |
+| F1 | 0,9213 | 0,9762 |
+| Especificidade | 0,9167 | 0,9861 |
+| Accuracy | 0,9386 | 0,9825 |
 | ROC-AUC | 0,9970 | — |
 | PR-AUC | 0,9956 | — |
 | Brier | 0,0193 | — |
-| **Falsos negativos** | **1** | **4** |
-| Falsos positivos | 6 | 2 |
+| **Falsos negativos** | **1** | **1** |
+| Falsos positivos | 6 | 1 |
 
 ![Matriz de confusão](reports/figures/11_matriz_confusao.png)
 
@@ -640,7 +640,33 @@ Duas observações, que explicam sem desculpar:
 
 2. **Ainda assim, a conclusão correta não é "atingimos o alvo".** É que a estimativa fora de fold era otimista, e que em produção se deve esperar sensibilidade *em torno de* 98%, não *garantidamente acima*. A seção 9.4 quantifica essa incerteza.
 
-Note que a escolha do limiar se justificou plenamente: no corte padrão de 0,5, seriam **4 falsos negativos em vez de 1**.
+#### O limiar deslocado não comprou nada nesta divisão
+
+Isso também precisa ser dito sem atenuação. **Nesta divisão, o limiar de 0,158 não evitou nenhum falso negativo e custou cinco falsos positivos.** No corte padrão de 0,5 o resultado teria sido melhor em todas as métricas de limiar: mesmo 1 falso negativo, 1 falso positivo em vez de 6, precisão de 0,976 contra 0,872.
+
+A razão é visível na análise de erros (seção 12): **o único caso maligno não sinalizado tem probabilidade 0,1166**, isto é, *abaixo* do limiar operacional de 0,158. Nenhum corte acima de 0,1166 o capturaria. O deslocamento do limiar só altera o destino de casos entre 0,158 e 0,5 — e nesta divisão todos os cinco casos nessa faixa eram benignos.
+
+**Isso invalida a decisão de limiar?** Não, por duas razões que precisam ser separadas:
+
+1. **Metodologicamente, a escolha permanece correta.** O limiar foi fixado por predições fora de fold em 455 amostras, antes de qualquer contato com o teste. Que ele tenha saído desfavorável *nesta* divisão é informação que não existia — e não poderia existir — no momento da decisão. Escolher o limiar olhando o teste seria exatamente o vazamento que o protocolo evita.
+
+2. **Na média das divisões, a decisão se sustenta.** Repetindo o protocolo inteiro sob as cinco sementes da seção 9.4 e avaliando cada divisão nos dois cortes:
+
+| Semente | Limiar ajustado | FN (ajustado) | FP (ajustado) | FN (0,5) | FP (0,5) |
+|---|---:|---:|---:|---:|---:|
+| 42 (a reportada acima) | 0,158 | 1 | 6 | 1 | 1 |
+| 7 | 0,264 | 2 | 3 | 2 | 0 |
+| 13 | 0,160 | **0** | 7 | 1 | 0 |
+| 2024 | 0,146 | **0** | 7 | **3** | 1 |
+| 99 | 0,190 | 1 | 8 | 1 | 3 |
+| **Total** | — | **4** | **31** | **8** | **5** |
+| **Recall médio** | — | **0,9810** | — | **0,9619** | — |
+
+O limiar ajustado **reduz os falsos negativos de 8 para 4** nas cinco divisões — recall médio de 98,1% contra 96,2% —, ao preço de 31 falsos positivos contra 5. A troca é a que o projeto escolheu deliberadamente, e em duas das cinco divisões ela eliminou de fato cânceres não sinalizados (sementes 13 e 2024).
+
+**O que muda na leitura.** Em três das cinco divisões o limiar ajustado não melhorou o recall e só aumentou a carga de revisão. A afirmação defensável é que **o deslocamento compra sensibilidade em expectativa, não em cada caso**, e que a divisão reportada na seção 9.1 é uma das em que ele não compensou. Qualquer formulação mais forte — "o limiar se justificou plenamente nestes dados" — seria sustentada por números que este teste não produziu.
+
+> Nota de procedência: a comparação acima é **post-hoc**, calculada depois de o teste ter sido aberto, e serve para auditar a decisão de limiar — não para escolhê-lo. O limiar servido em produção continua sendo o de 0,158, fixado fora de fold.
 
 ### 9.3 Por que a curva PR importa mais que a ROC
 

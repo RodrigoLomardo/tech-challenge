@@ -21,7 +21,7 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 |---|-----------|------|----------|--------|
 | 2.1 | Escolha de dataset médico público | 1 | Breast Cancer Wisconsin (Diagnostic) | [x] |
 | 2.2 | Definição explícita do problema a resolver | 1 | `RELATORIO_TECNICO.md` §2 | [x] |
-| 2.3 | Link de download documentado | 10 | `README.md` seção Dataset | [ ] |
+| 2.3 | Link de download documentado | 10 | `README.md` seção Dataset | [x] |
 
 ## 3. Exploração de dados
 
@@ -64,9 +64,9 @@ Legenda de status: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 
 | # | Requisito | Fase | Artefato | Status |
 |---|-----------|------|----------|--------|
-| 7.1 | Dockerfile | 9 | `docker/Dockerfile` (variante GPU cancelada — sem CUDA) | [ ] |
-| 7.2 | README.md com instruções de execução | 10 | `README.md` | [ ] |
-| 7.3 | Dataset ou link para download | 10 | `scripts/download_data.py` + README | [ ] |
+| 7.1 | Dockerfile | 9 | `Dockerfile` + `docker-compose.yml` (variante GPU cancelada — sem CUDA) | [x] |
+| 7.2 | README.md com instruções de execução | 10 | `README.md` | [x] |
+| 7.3 | Dataset ou link para download | 10 | `scripts/download_data.py` + README | [x] |
 | 7.4 | Resultados: prints, gráficos e análises | 6, 10 | 24 figuras + métricas em `reports/` | [x] |
 | 7.5 | Relatório técnico: pré-processamento, modelos e por quê, resultados interpretados | 10 | `RELATORIO_TECNICO.md` | [ ] |
 | 7.6 | Código documentado por completo | todas | docstrings + type hints + `ruff`/`black` limpos | [ ] |

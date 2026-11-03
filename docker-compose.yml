@@ -1,0 +1,60 @@
+# MedAI Triage — API + painel Streamlit.
+#
+#   docker compose up --build              # sobe api (:8000) e ui (:8501)
+#   docker compose --profile train run --rm train   # retreina e grava em ./models
+
+name: medai-triage
+
+services:
+  api:
+    build: .
+    image: medai-triage:latest
+    ports:
+      - "8000:8000"
+    environment:
+      MEDAI_LOG_LEVEL: ${MEDAI_LOG_LEVEL:-INFO}
+    volumes:
+      # Modelo do host em somente leitura: retreinar fora e reiniciar basta.
+      - ./models:/app/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+    restart: unless-stopped
+
+  ui:
+    image: medai-triage:latest
+    command:
+      [
+        "streamlit", "run", "src/medai/ui/app.py",
+        "--server.port=8501", "--server.address=0.0.0.0",
+        "--server.headless=true", "--browser.gatherUsageStats=false",
+      ]
+    ports:
+      - "8501:8501"
+    environment:
+      # Dentro da rede do compose a API é alcançada pelo nome do serviço.
+      MEDAI_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8501/_stcore/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+
+  # Perfil opcional: pipeline de treino completo (grava em ./models e ./reports).
+  train:
+    image: medai-triage:latest
+    profiles: ["train"]
+    command: ["python", "-m", "medai.models.train", "--config", "configs/breast_cancer.yaml"]
+    user: "0:0"  # escreve em bind mounts do host; evita conflito de UID
+    volumes:
+      - ./models:/app/models
+      - ./reports:/app/reports
+    restart: "no"
